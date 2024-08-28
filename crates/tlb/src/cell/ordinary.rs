@@ -17,7 +17,7 @@ use crate::{
     ser::CellBuilder,
 };
 
-/// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).  
+/// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
@@ -52,8 +52,8 @@ impl OrdinaryCell {
     /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse()`](CellParser::parse)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully<'de, T>(&'de self) -> Result<T, CellParserError<'de>>
-    where
-        T: CellDeserialize<'de>,
+        where
+            T: CellDeserialize<'de>,
     {
         let mut parser = self.parser();
         let v = parser.parse()?;
@@ -64,8 +64,8 @@ impl OrdinaryCell {
     /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse_with()`](CellParser::parse_with)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully_with<'de, T>(&'de self, args: T::Args) -> Result<T, CellParserError<'de>>
-    where
-        T: CellDeserializeWithArgs<'de>,
+        where
+            T: CellDeserializeWithArgs<'de>,
     {
         let mut parser = self.parser();
         let v = parser.parse_with(args)?;
@@ -76,8 +76,8 @@ impl OrdinaryCell {
     /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse_as()`](CellParser::parse_as)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully_as<'de, T, As>(&'de self) -> Result<T, CellParserError<'de>>
-    where
-        As: CellDeserializeAs<'de, T> + ?Sized,
+        where
+            As: CellDeserializeAs<'de, T> + ?Sized,
     {
         let mut parser = self.parser();
         let v = parser.parse_as::<T, As>()?;
@@ -91,8 +91,8 @@ impl OrdinaryCell {
         &'de self,
         args: As::Args,
     ) -> Result<T, CellParserError<'de>>
-    where
-        As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+        where
+            As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
     {
         let mut parser = self.parser();
         let v = parser.parse_as_with::<T, As>(args)?;
@@ -161,7 +161,7 @@ impl OrdinaryCell {
             let (last, data) = self.data.as_raw_slice().split_last().unwrap();
             buf.extend(data);
             let mut last = last & (!0u8 << (8 - rest_bits)); // clear the rest
-                                                             // let mut last = last;
+            // let mut last = last;
             last |= 1 << (8 - rest_bits - 1); // put stop-bit
             buf.push(last)
         }

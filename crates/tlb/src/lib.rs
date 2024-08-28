@@ -134,11 +134,11 @@
 //! # }
 //! ```
 pub mod r#as;
-mod cell;
+pub mod cell;
 pub mod de;
 pub mod ser;
 
-pub use self::cell::*;
+pub use self::cell::ordinary::*;
 
 pub use tlbits::{self as bits, either, Error, ResultExt, StringError};
 
