@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use tlb::{ser::CellSerialize, Cell};
+use tlb::{ser::CellSerialize, OrdinaryCell};
 use tlb_ton::{action::SendMsgAction, state_init::StateInit};
 
 use super::PUBLIC_KEY_LENGTH;
@@ -13,7 +13,7 @@ pub trait WalletVersion {
     type ExternalMsgBody: CellSerialize;
 
     /// Code of the wallet for use with [`StateInit`]
-    fn code() -> Arc<Cell>;
+    fn code() -> Arc<OrdinaryCell>;
 
     /// Init data for use with [`StateInit`]
     fn init_data(wallet_id: u32, pubkey: [u8; PUBLIC_KEY_LENGTH]) -> Self::Data;
@@ -34,7 +34,7 @@ pub trait WalletVersion {
     fn state_init(
         wallet_id: u32,
         pubkey: [u8; PUBLIC_KEY_LENGTH],
-    ) -> StateInit<Arc<Cell>, Self::Data> {
+    ) -> StateInit<Arc<OrdinaryCell>, Self::Data> {
         StateInit {
             code: Some(Self::code()),
             data: Some(Self::init_data(wallet_id, pubkey)),

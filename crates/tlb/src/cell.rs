@@ -19,12 +19,12 @@ use crate::{
 
 /// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).  
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-pub struct Cell {
+pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Self>>,
 }
 
-impl Cell {
+impl OrdinaryCell {
     /// Create new [`CellBuilder`]
     #[inline]
     #[must_use]
@@ -49,7 +49,7 @@ impl Cell {
         CellParser::new(&self.data, &self.references)
     }
 
-    /// Shortcut for [`.parser()`](Cell::parser)[`.parse()`](CellParser::parse)[`.ensure_empty()`](CellParser::ensure_empty).
+    /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse()`](CellParser::parse)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully<'de, T>(&'de self) -> Result<T, CellParserError<'de>>
     where
@@ -61,7 +61,7 @@ impl Cell {
         Ok(v)
     }
 
-    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_with()`](CellParser::parse_with)[`.ensure_empty()`](CellParser::ensure_empty).
+    /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse_with()`](CellParser::parse_with)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully_with<'de, T>(&'de self, args: T::Args) -> Result<T, CellParserError<'de>>
     where
@@ -73,7 +73,7 @@ impl Cell {
         Ok(v)
     }
 
-    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as()`](CellParser::parse_as)[`.ensure_empty()`](CellParser::ensure_empty).
+    /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse_as()`](CellParser::parse_as)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully_as<'de, T, As>(&'de self) -> Result<T, CellParserError<'de>>
     where
@@ -85,7 +85,7 @@ impl Cell {
         Ok(v)
     }
 
-    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as_with()`](CellParser::parse_as_with)[`.ensure_empty()`](CellParser::ensure_empty).
+    /// Shortcut for [`.parser()`](OrdinaryCell::parser)[`.parse_as_with()`](CellParser::parse_as_with)[`.ensure_empty()`](CellParser::ensure_empty).
     #[inline]
     pub fn parse_fully_as_with<'de, T, As>(
         &'de self,
@@ -117,7 +117,7 @@ impl Cell {
         self.references
             .iter()
             .map(Deref::deref)
-            .map(Cell::level)
+            .map(OrdinaryCell::level)
             .max()
             .unwrap_or(0)
     }
@@ -141,7 +141,7 @@ impl Cell {
         self.references
             .iter()
             .map(Deref::deref)
-            .map(Cell::max_depth)
+            .map(OrdinaryCell::max_depth)
             .max()
             .map(|d| d + 1)
             .unwrap_or(0)
@@ -178,7 +178,7 @@ impl Cell {
             self.references
                 .iter()
                 .map(Deref::deref)
-                .flat_map(Cell::hash),
+                .flat_map(OrdinaryCell::hash),
         );
 
         buf
@@ -193,7 +193,7 @@ impl Cell {
     }
 }
 
-impl Debug for Cell {
+impl Debug for OrdinaryCell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             write!(f, "{}[0b", self.data.len())?;
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn hash_no_refs() {
-        let mut builder = Cell::builder();
+        let mut builder = OrdinaryCell::builder();
         builder.pack_as::<_, NBits<32>>(0x0000000F).unwrap();
         let cell = builder.into_cell();
 
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn hash_with_refs() {
-        let mut builder = Cell::builder();
+        let mut builder = OrdinaryCell::builder();
         builder
             .store_as::<_, Data<NBits<24>>>(0x00000B)
             .unwrap()

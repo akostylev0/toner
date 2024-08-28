@@ -4,7 +4,7 @@ use tlb::{
     de::{r#as::CellDeserializeAs, CellParser, CellParserError},
     r#as::{Ref, Same},
     ser::{r#as::CellSerializeAs, CellBuilder, CellBuilderError},
-    Cell, ResultExt,
+    OrdinaryCell, ResultExt,
 };
 
 /// ```tlb
@@ -20,8 +20,8 @@ where
 {
     #[inline]
     fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
-        builder.store(source.into_iter().try_fold(Cell::builder(), |prev, v| {
-            let mut list = Cell::builder();
+        builder.store(source.into_iter().try_fold(OrdinaryCell::builder(), |prev, v| {
+            let mut list = OrdinaryCell::builder();
             list.store_as::<_, Ref>(prev)?.store_as::<_, As>(v)?;
             Ok(list)
         })?)?;

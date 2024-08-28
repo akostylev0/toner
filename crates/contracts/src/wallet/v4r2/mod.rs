@@ -10,7 +10,7 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{NoArgs, Ref},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error,
+    OrdinaryCell, Error,
 };
 use tlb_ton::{
     action::SendMsgAction, boc::BagOfCells, currency::Grams, hashmap::HashmapE,
@@ -20,7 +20,7 @@ use tlb_ton::{
 use super::WalletVersion;
 
 lazy_static! {
-    static ref WALLET_V4R2_CODE_CELL: Arc<Cell> = {
+    static ref WALLET_V4R2_CODE_CELL: Arc<OrdinaryCell> = {
         BagOfCells::parse_base64(include_str!("./wallet_v4r2.code"))
             .unwrap()
             .single_root()
@@ -37,7 +37,7 @@ impl WalletVersion for V4R2 {
     type SignBody = WalletV4R2SignBody;
     type ExternalMsgBody = WalletV4R2ExternalBody;
 
-    fn code() -> Arc<Cell> {
+    fn code() -> Arc<OrdinaryCell> {
         WALLET_V4R2_CODE_CELL.clone()
     }
 
@@ -187,7 +187,7 @@ impl<'de> CellDeserialize<'de> for WalletV4R2Op {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WalletV4R2OpDeployAndInstallPlugin<T = Cell, IC = Cell, ID = Cell> {
+pub struct WalletV4R2OpDeployAndInstallPlugin<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
     pub plugin_workchain: i8,
     pub plugin_balance: BigUint,
     pub state_init: StateInit<IC, ID>,
@@ -301,7 +301,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: OrdinaryCell = unpacked.single_root().unwrap().parse_fully().unwrap();
         assert_eq!(&got, WALLET_V4R2_CODE_CELL.as_ref());
     }
 }

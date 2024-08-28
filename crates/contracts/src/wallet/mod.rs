@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
 use tlb::{
     ser::{CellBuilderError, CellSerializeExt},
-    Cell,
+    OrdinaryCell,
 };
 use tlb_ton::{
     action::SendMsgAction,
@@ -125,7 +125,7 @@ where
     ///
     /// ```rust
     /// # use hex_literal::hex;
-    /// # use tlb::Cell;
+    /// # use tlb::OrdinaryCell;
     /// # use tlb_ton::{
     /// #   message::Message,
     /// #   currency::ONE_TON,
@@ -160,7 +160,7 @@ where
     ///     }],
     ///     false, // do not deploy wallet
     ///     ).unwrap();
-    /// # let mut b = Cell::builder();
+    /// # let mut b = OrdinaryCell::builder();
     /// # b.store(msg).unwrap();
     /// ```
     #[inline]
@@ -170,7 +170,7 @@ where
         seqno: u32,
         msgs: impl IntoIterator<Item = SendMsgAction>,
         state_init: bool,
-    ) -> anyhow::Result<Message<V::ExternalMsgBody, Arc<Cell>, V::Data>> {
+    ) -> anyhow::Result<Message<V::ExternalMsgBody, Arc<OrdinaryCell>, V::Data>> {
         let sign_body = self.create_sign_body(expire_at, seqno, msgs);
         let signature = self.sign_body(&sign_body)?;
         let body = V::wrap_signed_external(sign_body, signature);
@@ -192,7 +192,7 @@ where
         &self,
         body: V::ExternalMsgBody,
         state_init: bool,
-    ) -> Message<V::ExternalMsgBody, Arc<Cell>, V::Data> {
+    ) -> Message<V::ExternalMsgBody, Arc<OrdinaryCell>, V::Data> {
         Message {
             info: CommonMsgInfo::ExternalIn(ExternalInMsgInfo {
                 src: MsgAddress::NULL,
@@ -205,7 +205,7 @@ where
     }
 
     #[inline]
-    pub fn state_init(&self) -> StateInit<Arc<Cell>, V::Data> {
+    pub fn state_init(&self) -> StateInit<Arc<OrdinaryCell>, V::Data> {
         V::state_init(self.wallet_id(), *self.public_key())
     }
 }

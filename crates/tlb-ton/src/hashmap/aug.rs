@@ -696,7 +696,7 @@ mod tests {
         bits::bitvec::{bits, order::Msb0, view::AsBits},
         r#as::{Data, NoArgs},
         ser::{r#as::CellSerializeWrapAsExt, CellSerializeExt},
-        Cell,
+        OrdinaryCell,
     };
 
     use super::*;
@@ -717,7 +717,7 @@ mod tests {
         // 128 -> 777
         assert_eq!(hm.get(128u8.to_be_bytes().as_bits()), Some(&777));
 
-        let mut builder = Cell::builder();
+        let mut builder = OrdinaryCell::builder();
         builder
             .store_as_with::<_, HashmapE<Data<NoArgs<_>>, NoArgs<_>>>(hm, (8, (), ()))
             .unwrap();
@@ -760,7 +760,7 @@ mod tests {
     }
 
     /// See <https://docs.ton.org/develop/data-formats/tl-b-types#hashmap-parsing-example>
-    fn given_cell_from_example() -> Cell {
+    fn given_cell_from_example() -> OrdinaryCell {
         (
             bits![u8, Msb0; 1].wrap_as::<Data>(),
             (

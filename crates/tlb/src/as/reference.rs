@@ -9,7 +9,7 @@ use crate::{
     ser::{
         args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
     },
-    Cell, ResultExt,
+    OrdinaryCell, ResultExt,
 };
 
 use super::Same;
@@ -98,7 +98,7 @@ where
         builder: &mut CellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
-        let mut b = Cell::builder();
+        let mut b = OrdinaryCell::builder();
         As::store_as_with(source, &mut b, args)?;
         let cell = b.into_cell();
         builder.store_as::<_, Either<Same, Ref>>(

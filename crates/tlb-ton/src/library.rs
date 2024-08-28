@@ -3,7 +3,7 @@ use tlb::{
     either::Either,
     r#as::{Data, Ref},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell,
+    OrdinaryCell,
 };
 
 /// ```tlb
@@ -11,7 +11,7 @@ use tlb::{
 /// libref_ref$1 library:^Cell = LibRef;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LibRef<R = Cell> {
+pub enum LibRef<R = OrdinaryCell> {
     Hash([u8; 32]),
     Ref(R),
 }
