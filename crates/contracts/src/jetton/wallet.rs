@@ -12,7 +12,6 @@ use tlb::{
     r#as::{EitherInlineOrRef, ParseFully, Ref, Same},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
     OrdinaryCell, Error,
-
 };
 use tlb_ton::MsgAddress;
 
