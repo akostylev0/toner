@@ -8,6 +8,7 @@ use std::{
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crc::Crc;
 use strum::FromRepr;
+use tlb::bits::ser::BitPack;
 use tlb::{
     bits::{
         bitvec::{order::Msb0, vec::BitVec, view::AsBits},
@@ -17,7 +18,6 @@ use tlb::{
     },
     Cell, Error, ResultExt, StringError,
 };
-use tlb::bits::ser::BitPack;
 
 /// Alias to [`BagOfCells`]
 pub type BoC = BagOfCells;
@@ -490,7 +490,10 @@ pub(crate) enum RawCellType {
 }
 
 impl BitUnpack for RawCellType {
-    fn unpack<R>(mut reader: R) -> Result<Self, R::Error> where R: BitReader {
+    fn unpack<R>(mut reader: R) -> Result<Self, R::Error>
+    where
+        R: BitReader,
+    {
         let raw_type = reader.unpack()?;
 
         RawCellType::from_repr(raw_type)
@@ -499,7 +502,10 @@ impl BitUnpack for RawCellType {
 }
 
 impl BitPack for RawCellType {
-    fn pack<W>(&self, mut writer: W) -> Result<(), W::Error> where W: BitWriter {
+    fn pack<W>(&self, mut writer: W) -> Result<(), W::Error>
+    where
+        W: BitWriter,
+    {
         writer.pack(*self as u8)?;
 
         Ok(())

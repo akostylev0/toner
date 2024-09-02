@@ -134,7 +134,7 @@
 //! # }
 //! ```
 pub mod r#as;
-pub mod cell;
+mod cell;
 pub mod de;
 pub mod ser;
 
