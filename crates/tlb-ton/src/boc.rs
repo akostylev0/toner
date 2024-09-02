@@ -493,8 +493,8 @@ impl BitUnpack for RawCellType {
     fn unpack<R>(mut reader: R) -> Result<Self, R::Error> where R: BitReader {
         let raw_type = reader.unpack()?;
 
-        Ok(RawCellType::from_repr(raw_type)
-            .ok_or_else(|| Error::custom(format!("unknown cell type: {}", raw_type)))?)
+        RawCellType::from_repr(raw_type)
+            .ok_or_else(|| Error::custom(format!("unknown cell type: {}", raw_type)))
     }
 }
 
