@@ -2,7 +2,7 @@ use tlb::{
     bits::{de::BitReaderExt, ser::BitWriterExt},
     de::{args::r#as::CellDeserializeAsWithArgs, CellParser, CellParserError},
     r#as::{ParseFully, Ref},
-    ser::{args::r#as::CellSerializeAsWithArgs, CellBuilder, CellBuilderError},
+    ser::{args::r#as::CellSerializeAsWithArgs, OrdinaryCellBuilder, CellBuilderError},
 };
 
 /// [`BinTreeAug X Y`](https://docs.ton.org/develop/data-formats/tl-b-types#bintree)  
@@ -28,7 +28,7 @@ where
     #[inline]
     fn store_as_with(
         source: &BinTreeAug<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         (args, extra_args): Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder
@@ -85,7 +85,7 @@ where
     #[inline]
     fn store_as_with(
         source: &BinTreeNode<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         (args, extra_args): Self::Args,
     ) -> Result<(), CellBuilderError> {
         match source {

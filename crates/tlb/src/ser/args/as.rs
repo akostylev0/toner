@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    super::{CellBuilder, CellBuilderError},
+    super::{OrdinaryCellBuilder, CellBuilderError},
     CellSerializeWithArgs,
 };
 
@@ -20,7 +20,7 @@ pub trait CellSerializeAsWithArgs<T: ?Sized> {
     /// Stores the value with args using an adapter
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError>;
 }
@@ -35,7 +35,7 @@ where
     #[inline]
     fn store_as_with(
         source: &&'a T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         AsWrap::<&T, As>::new(source).store_with(builder, args)
@@ -52,7 +52,7 @@ where
     #[inline]
     fn store_as_with(
         source: &&'a mut T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         AsWrap::<&T, As>::new(source).store_with(builder, args)
@@ -69,7 +69,7 @@ where
     #[inline]
     fn store_as_with(
         source: &[T],
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder.store_many_as_with::<_, &As>(source, args)?;
@@ -87,7 +87,7 @@ where
     #[inline]
     fn store_as_with(
         source: &[T; N],
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         <[As]>::store_as_with(source, builder, args)
@@ -104,7 +104,7 @@ macro_rules! impl_cell_serialize_as_with_args_for_tuple {
             type Args = ($($a::Args,)+);
 
             #[inline]
-            fn store_as_with(source: &($($t,)+), builder: &mut CellBuilder, args: Self::Args) -> Result<(), CellBuilderError> {
+            fn store_as_with(source: &($($t,)+), builder: &mut OrdinaryCellBuilder, args: Self::Args) -> Result<(), CellBuilderError> {
                 builder$(
                     .store_as_with::<&$t, &$a>(&source.$n, args.$n)?)+;
                 Ok(())
@@ -132,7 +132,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Box<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         AsWrap::<&T, As>::new(source).store_with(builder, args)
@@ -148,7 +148,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Rc<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         AsWrap::<&T, As>::new(source).store_with(builder, args)
@@ -164,7 +164,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Arc<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         AsWrap::<&T, As>::new(source).store_with(builder, args)
@@ -187,7 +187,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Either<Left, Right>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source
@@ -206,7 +206,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Option<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         match source.as_ref() {
@@ -231,7 +231,7 @@ where
     #[inline]
     fn store_as_with(
         source: &Option<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source

@@ -10,8 +10,8 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     either::Either,
     r#as::{EitherInlineOrRef, ParseFully, Ref, Same},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize},
+    OrdinaryCell, Error,
 };
 use tlb_ton::MsgAddress;
 
@@ -22,7 +22,7 @@ use tlb_ton::MsgAddress;
 /// forward_ton_amount:(VarUInteger 16) forward_payload:(Either Cell ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonTransfer<P = Cell, F = Cell> {
+pub struct JettonTransfer<P = OrdinaryCell, F = OrdinaryCell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub dst: MsgAddress,
@@ -39,7 +39,7 @@ where
     P: CellSerialize,
     F: CellSerialize,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             // transfer#0f8a7ea5
             .pack(JETTON_TRANSFER_TAG)?
@@ -91,7 +91,7 @@ where
     }
 }
 
-pub enum ForwardPayload<T = Cell> {
+pub enum ForwardPayload<T = OrdinaryCell> {
     Data(T),
     Comment(ForwardPayloadComment),
 }
@@ -105,7 +105,7 @@ where
     T: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::Data(data) => builder.store(data)?,
             Self::Comment(comment) => builder.pack(Self::COMMENT_PREFIX)?.pack(comment)?,
@@ -179,7 +179,7 @@ impl BitUnpack for ForwardPayloadComment {
 /// sender:MsgAddress forward_payload:(Either Cell ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonTransferNotification<P = Cell> {
+pub struct JettonTransferNotification<P = OrdinaryCell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub sender: MsgAddress,
@@ -192,7 +192,7 @@ impl<P> CellSerialize for JettonTransferNotification<P>
 where
     P: CellSerialize,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(JETTON_TRANSFER_NOTIFICATION_TAG)?
             .pack(self.query_id)?
@@ -226,7 +226,7 @@ where
 /// response_destination:MsgAddress custom_payload:(Maybe ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonBurn<P = Cell> {
+pub struct JettonBurn<P = OrdinaryCell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub response_dst: MsgAddress,
@@ -239,7 +239,7 @@ impl<P> CellSerialize for JettonBurn<P>
 where
     P: CellSerialize,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(JETTON_BURN_TAG)?
             .pack_as::<_, &VarInt<4>>(&self.amount)?

@@ -8,7 +8,7 @@ use tlb::{
     },
     de::{args::r#as::CellDeserializeAsWithArgs, CellParser, CellParserError},
     r#as::{ParseFully, Ref, Same},
-    ser::{args::r#as::CellSerializeAsWithArgs, CellBuilder, CellBuilderError},
+    ser::{args::r#as::CellSerializeAsWithArgs, OrdinaryCellBuilder, CellBuilderError},
     Error, ResultExt,
 };
 
@@ -32,7 +32,7 @@ where
     #[inline]
     fn store_as_with(
         source: &HashmapE<T>,
-        builder: &mut tlb::ser::CellBuilder,
+        builder: &mut tlb::ser::OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), tlb::ser::CellBuilderError> {
         match source {
@@ -91,7 +91,7 @@ where
 
     fn store_as_with(
         source: &Hashmap<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         (n, args): Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder
@@ -160,7 +160,7 @@ where
 
     fn store_as_with(
         source: &HashmapNode<T>,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         (n, args): Self::Args,
     ) -> Result<(), CellBuilderError> {
         match source {

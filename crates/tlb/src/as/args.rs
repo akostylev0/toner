@@ -3,7 +3,7 @@ use crate::{
         args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
     },
     ser::{
-        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
+        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, OrdinaryCellBuilder, CellBuilderError,
     },
 };
 
@@ -18,7 +18,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         _args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         As::store_as(source, builder)
@@ -46,7 +46,7 @@ where
     As::Args: Default,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         As::store_as_with(source, builder, <As::Args>::default())
     }
 }

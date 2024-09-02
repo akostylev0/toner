@@ -6,7 +6,7 @@ use crate::{
         ser::{BitWriter, LimitWriter},
     },
     r#as::Ref,
-    Cell, Error, ResultExt,
+    OrdinaryCell, Error, ResultExt,
 };
 
 use super::{
@@ -17,22 +17,22 @@ use super::{
 
 type CellBitWriter = LimitWriter<BitVec<u8, Msb0>>;
 
-/// [`Error`] for [`CellBuilder`]
-pub type CellBuilderError = <CellBuilder as BitWriter>::Error;
+/// [`Error`] for [`OrdinaryCellBuilder`]
+pub type CellBuilderError = <OrdinaryCellBuilder as BitWriter>::Error;
 
-/// Cell builder created with [`Cell::builder()`].
+/// Cell builder created with [`OrdinaryCell::builder()`].
 ///
-/// [`CellBuilder`] can then be converted to constructed [`Cell`] by using
-/// [`.into_cell()`](CellBuilder::into_cell).
-pub struct CellBuilder {
+/// [`OrdinaryCellBuilder`] can then be converted to constructed [`OrdinaryCell`] by using
+/// [`.into_cell()`](OrdinaryCellBuilder::into_cell).
+pub struct OrdinaryCellBuilder {
     data: CellBitWriter,
-    references: Vec<Arc<Cell>>,
+    references: Vec<Arc<OrdinaryCell>>,
 }
 
 const MAX_BITS_LEN: usize = 1023;
 const MAX_REFS_COUNT: usize = 4;
 
-impl CellBuilder {
+impl OrdinaryCellBuilder {
     #[inline]
     #[must_use]
     pub(crate) const fn new() -> Self {
@@ -199,18 +199,18 @@ impl CellBuilder {
         Ok(self)
     }
 
-    /// Convert builder to [`Cell`]
+    /// Convert builder to [`OrdinaryCell`]
     #[inline]
     #[must_use]
-    pub fn into_cell(self) -> Cell {
-        Cell {
+    pub fn into_cell(self) -> OrdinaryCell {
+        OrdinaryCell {
             data: self.data.into_inner(),
             references: self.references,
         }
     }
 }
 
-impl BitWriter for CellBuilder {
+impl BitWriter for OrdinaryCellBuilder {
     type Error = <CellBitWriter as BitWriter>::Error;
 
     #[inline]
@@ -235,8 +235,8 @@ impl BitWriter for CellBuilder {
     }
 }
 
-impl CellSerialize for CellBuilder {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+impl CellSerialize for OrdinaryCellBuilder {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.write_bitslice(&self.data)?;
         builder.store_many_as::<_, Ref>(&self.references)?;
         Ok(())

@@ -9,8 +9,8 @@ use tlb::{
     },
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{DefaultOnNone, EitherInlineOrRef},
-    ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    Cell, ResultExt,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
+    OrdinaryCell, ResultExt,
 };
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
 /// body:(Either X ^X) = Message X;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Message<T = Cell, IC = Cell, ID = Cell> {
+pub struct Message<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
     pub info: CommonMsgInfo,
     pub init: Option<StateInit<IC, ID>>,
     pub body: T,
@@ -73,7 +73,7 @@ where
     IC: CellSerialize,
     ID: CellSerialize,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             // info:CommonMsgInfo
             .store(&self.info)?
@@ -133,7 +133,7 @@ impl CommonMsgInfo {
 
 impl CellSerialize for CommonMsgInfo {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::Internal(msg) => builder
                 // int_msg_info$0
@@ -226,7 +226,7 @@ impl InternalMsgInfo {
 }
 
 impl CellSerialize for InternalMsgInfo {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.ihr_disabled)?
             .pack(self.bounce)?

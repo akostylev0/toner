@@ -3,8 +3,8 @@ use core::marker::PhantomData;
 use tlb::{
     de::{r#as::CellDeserializeAs, CellParser, CellParserError},
     r#as::{Ref, Same},
-    ser::{r#as::CellSerializeAs, CellBuilder, CellBuilderError},
-    Cell, ResultExt,
+    ser::{r#as::CellSerializeAs, OrdinaryCellBuilder, CellBuilderError},
+    OrdinaryCell, ResultExt,
 };
 
 /// ```tlb
@@ -19,9 +19,9 @@ where
     for<'a> As: CellSerializeAs<<&'a T as IntoIterator>::Item>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
-        builder.store(source.into_iter().try_fold(Cell::builder(), |prev, v| {
-            let mut list = Cell::builder();
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
+        builder.store(source.into_iter().try_fold(OrdinaryCell::builder(), |prev, v| {
+            let mut list = OrdinaryCell::builder();
             list.store_as::<_, Ref>(prev)?.store_as::<_, As>(v)?;
             Ok(list)
         })?)?;

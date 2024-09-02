@@ -8,7 +8,7 @@ use crate::{
         args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
     },
     ser::{
-        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
+        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, OrdinaryCellBuilder, CellBuilderError,
     },
 };
 
@@ -23,7 +23,7 @@ use super::Same;
 /// #           de::{BitUnpack, BitReader, BitReaderExt},
 /// #           ser::{BitPack, BitWriter, BitWriterExt},
 /// #       },
-/// #       Cell,
+/// #       OrdinaryCell,
 /// #       StringError,
 /// # };
 /// # #[derive(Debug, Clone, Copy, PartialEq)]
@@ -52,7 +52,7 @@ use super::Same;
 ///
 /// # fn main() -> Result<(), StringError> {
 /// let v = BinaryData { field: 123 };
-/// # let mut builder = Cell::builder();
+/// # let mut builder = OrdinaryCell::builder();
 /// // store as binary data
 /// builder.store_as::<_, Data>(v)?;
 /// # let cell = builder.into_cell();
@@ -72,7 +72,7 @@ where
     T: ?Sized,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         As::pack_as(source, builder)
     }
 }
@@ -87,7 +87,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         As::pack_as_with(source, builder, args)

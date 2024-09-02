@@ -6,7 +6,7 @@ use impl_tools::autoimpl;
 
 use crate::{bits::ser::BitWriterExt, either::Either, r#as::Same, ResultExt};
 
-use super::{CellBuilder, CellBuilderError};
+use super::{OrdinaryCellBuilder, CellBuilderError};
 
 /// A type that can be **ser**ialized.  
 /// In contrast with [`CellSerialize`](super::CellSerialize) it allows to pass
@@ -19,7 +19,7 @@ pub trait CellSerializeWithArgs {
     /// Stores the value with args
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError>;
 }
@@ -34,7 +34,7 @@ where
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder.store_many_with(self, args)?;
@@ -57,7 +57,7 @@ where
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         match self {
@@ -90,7 +90,7 @@ where
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder.store_as_with::<_, Either<(), Same>>(self.as_ref(), args)?;

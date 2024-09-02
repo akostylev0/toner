@@ -2,8 +2,8 @@ use tlb::{
     bits::{de::BitReaderExt, r#as::NBits, ser::BitWriterExt},
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::Ref,
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error, ResultExt,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize},
+    OrdinaryCell, Error, ResultExt,
 };
 
 use crate::{currency::CurrencyCollection, library::LibRef, message::Message};
@@ -18,7 +18,7 @@ pub enum OutAction {
     /// ```tlb
     /// action_set_code#ad4de08e new_code:^Cell = OutAction;
     /// ```
-    SetCode(Cell),
+    SetCode(OrdinaryCell),
 
     /// ```tlb
     /// action_reserve_currency#36e6b809 mode:(## 8) currency:CurrencyCollection = OutAction;
@@ -40,7 +40,7 @@ impl OutAction {
 
 impl CellSerialize for OutAction {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             OutAction::SendMsg(action) => builder.pack(Self::SEND_MSG_PREFIX)?.store(action)?,
             OutAction::SetCode(new_code) => builder
@@ -80,7 +80,7 @@ impl<'de> CellDeserialize<'de> for OutAction {
 /// action_send_msg#0ec3c86d mode:(## 8) out_msg:^(MessageRelaxed Any) = OutAction;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SendMsgAction<T = Cell, IC = Cell, ID = Cell> {
+pub struct SendMsgAction<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
     /// See <https://docs.ton.org/develop/func/stdlib#send_raw_message>
     pub mode: u8,
     pub message: Message<T, IC, ID>,
@@ -93,7 +93,7 @@ where
     ID: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.pack(self.mode)?.store_as::<_, Ref>(&self.message)?;
         Ok(())
     }
@@ -125,7 +125,7 @@ pub struct ReserveCurrencyAction {
 
 impl CellSerialize for ReserveCurrencyAction {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.pack(self.mode)?.store(&self.currency)?;
         Ok(())
     }
@@ -145,7 +145,7 @@ impl<'de> CellDeserialize<'de> for ReserveCurrencyAction {
 /// action_change_library#26fa1dd4 mode:(## 7) libref:LibRef = OutAction;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChangeLibraryAction<R = Cell> {
+pub struct ChangeLibraryAction<R = OrdinaryCell> {
     pub mode: u8,
     pub libref: LibRef<R>,
 }
@@ -155,7 +155,7 @@ where
     R: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack_as::<_, NBits<7>>(self.mode)?
             .store(&self.libref)?;

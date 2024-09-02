@@ -13,19 +13,19 @@ use crate::{
     bits::ser::BitWriterExt,
     either::Either,
     r#as::{Ref, Same},
-    Cell, ResultExt,
+    OrdinaryCell, ResultExt,
 };
 
-/// A type that can be **ser**ilalized into [`CellBuilder`].
+/// A type that can be **ser**ilalized into [`OrdinaryCellBuilder`].
 #[autoimpl(for <T: trait + ?Sized> &T, &mut T, Box<T>, Rc<T>, Arc<T>)]
 pub trait CellSerialize {
-    /// Store the value into [`CellBuilder`]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError>;
+    /// Store the value into [`OrdinaryCellBuilder`]
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError>;
 }
 
 impl CellSerialize for () {
     #[inline]
-    fn store(&self, _builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, _builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         Ok(())
     }
 }
@@ -35,7 +35,7 @@ where
     T: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.store_many(self)?;
         Ok(())
     }
@@ -46,7 +46,7 @@ where
     T: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         self.as_slice().store(builder)
     }
 }
@@ -59,7 +59,7 @@ macro_rules! impl_cell_serialize_for_tuple {
         )+
         {
             #[inline]
-            fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError>
+            fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError>
             {
                 $(self.$n.store(builder).context(concat!(".", stringify!($n)))?;)+
                 Ok(())
@@ -89,7 +89,7 @@ where
     R: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::Left(l) => builder
                 .pack(false)
@@ -116,15 +116,15 @@ where
     T: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.store_as::<_, Either<(), Same>>(self.as_ref())?;
         Ok(())
     }
 }
 
-impl CellSerialize for Cell {
+impl CellSerialize for OrdinaryCell {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.data.as_bitslice())?
             .store_many_as::<_, Ref>(&self.references)?;
@@ -135,8 +135,8 @@ impl CellSerialize for Cell {
 
 pub trait CellSerializeExt: CellSerialize {
     #[inline]
-    fn to_cell(&self) -> Result<Cell, CellBuilderError> {
-        let mut builder = Cell::builder();
+    fn to_cell(&self) -> Result<OrdinaryCell, CellBuilderError> {
+        let mut builder = OrdinaryCell::builder();
         self.store(&mut builder)?;
         Ok(builder.into_cell())
     }

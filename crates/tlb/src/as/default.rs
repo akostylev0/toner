@@ -1,6 +1,6 @@
 use crate::{
     de::{r#as::CellDeserializeAs, CellParser, CellParserError},
-    ser::{r#as::CellSerializeAs, CellBuilder, CellBuilderError},
+    ser::{r#as::CellSerializeAs, OrdinaryCellBuilder, CellBuilderError},
 };
 
 pub use crate::bits::r#as::DefaultOnNone;
@@ -10,7 +10,7 @@ where
     As: CellSerializeAs<T>,
     T: Default,
 {
-    fn store_as(source: &Option<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Option<T>, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match source {
             Some(v) => builder.store_as::<_, &As>(v)?,
             None => builder.store_as::<_, As>(T::default())?,

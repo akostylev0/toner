@@ -9,8 +9,8 @@ use tlb::{
     bits::{de::BitReaderExt, ser::BitWriterExt},
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{NoArgs, Ref},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize},
+    OrdinaryCell, Error,
 };
 use tlb_ton::{
     action::SendMsgAction, boc::BagOfCells, currency::Grams, hashmap::HashmapE,
@@ -20,7 +20,7 @@ use tlb_ton::{
 use super::WalletVersion;
 
 lazy_static! {
-    static ref WALLET_V4R2_CODE_CELL: Arc<Cell> = {
+    static ref WALLET_V4R2_CODE_CELL: Arc<OrdinaryCell> = {
         BagOfCells::parse_base64(include_str!("./wallet_v4r2.code"))
             .unwrap()
             .single_root()
@@ -37,7 +37,7 @@ impl WalletVersion for V4R2 {
     type SignBody = WalletV4R2SignBody;
     type ExternalMsgBody = WalletV4R2ExternalBody;
 
-    fn code() -> Arc<Cell> {
+    fn code() -> Arc<OrdinaryCell> {
         WALLET_V4R2_CODE_CELL.clone()
     }
 
@@ -79,7 +79,7 @@ pub struct WalletV4R2Data {
 }
 
 impl CellSerialize for WalletV4R2Data {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.seqno)?
             .pack(self.wallet_id)?
@@ -116,7 +116,7 @@ pub struct WalletV4R2SignBody {
 }
 
 impl CellSerialize for WalletV4R2SignBody {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.wallet_id)?
             .pack_as::<_, UnixTimestamp>(self.expire_at)?
@@ -153,7 +153,7 @@ impl WalletV4R2Op {
 }
 
 impl CellSerialize for WalletV4R2Op {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::Send(msgs) => builder.pack(Self::SEND_PREFIX)?.store_many(msgs)?,
             Self::DeployAndInstall(msg) => {
@@ -187,7 +187,7 @@ impl<'de> CellDeserialize<'de> for WalletV4R2Op {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WalletV4R2OpDeployAndInstallPlugin<T = Cell, IC = Cell, ID = Cell> {
+pub struct WalletV4R2OpDeployAndInstallPlugin<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
     pub plugin_workchain: i8,
     pub plugin_balance: BigUint,
     pub state_init: StateInit<IC, ID>,
@@ -200,7 +200,7 @@ where
     IC: CellSerialize,
     ID: CellSerialize,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.plugin_workchain)?
             .pack_as::<_, &Grams>(&self.plugin_balance)?
@@ -234,7 +234,7 @@ pub struct WalletV4R2OpPlugin {
 }
 
 impl CellSerialize for WalletV4R2OpPlugin {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.plugin_address.workchain_id as i8)?
             .pack(self.plugin_address.address)?
@@ -265,7 +265,7 @@ pub struct WalletV4R2ExternalBody {
 
 impl CellSerialize for WalletV4R2ExternalBody {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.pack(self.signature)?.store(&self.body)?;
         Ok(())
     }
@@ -301,7 +301,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: OrdinaryCell = unpacked.single_root().unwrap().parse_fully().unwrap();
         assert_eq!(&got, WALLET_V4R2_CODE_CELL.as_ref());
     }
 }

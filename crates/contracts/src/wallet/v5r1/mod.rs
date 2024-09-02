@@ -7,8 +7,8 @@ use tlb::{
     bits::{de::BitReaderExt, ser::BitWriterExt},
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{Data, NoArgs},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error, ResultExt,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize},
+    OrdinaryCell, Error, ResultExt,
 };
 use tlb_ton::{
     action::{OutAction, SendMsgAction},
@@ -21,7 +21,7 @@ use tlb_ton::{
 use super::WalletVersion;
 
 lazy_static! {
-    static ref WALLET_V5R1_CODE_CELL: Arc<Cell> = {
+    static ref WALLET_V5R1_CODE_CELL: Arc<OrdinaryCell> = {
         BagOfCells::parse_base64(include_str!("./wallet_v5r1.code"))
             .unwrap()
             .single_root()
@@ -39,7 +39,7 @@ impl WalletVersion for V5R1 {
     type ExternalMsgBody = WalletV5R1MsgBody;
 
     #[inline]
-    fn code() -> Arc<Cell> {
+    fn code() -> Arc<OrdinaryCell> {
         WALLET_V5R1_CODE_CELL.clone()
     }
 
@@ -89,7 +89,7 @@ pub struct WalletV5R1Data {
 
 impl CellSerialize for WalletV5R1Data {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.is_signature_allowed)?
             .pack(self.seqno)?
@@ -130,7 +130,7 @@ pub struct WalletV5R1InnerRequest {
 }
 
 impl CellSerialize for WalletV5R1InnerRequest {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .store_as::<_, Option<&List>>(
                 Some(&self.out_actions).filter(|actions| !actions.is_empty()),
@@ -185,7 +185,7 @@ impl ExtendedAction {
 }
 
 impl CellSerialize for ExtendedAction {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::AddExtension(addr) => builder.pack(Self::ADD_EXTENSION_PREFIX)?.pack(addr)?,
             Self::DeleteExtension(addr) => {
@@ -230,7 +230,7 @@ pub struct WalletV5RSignBody {
 }
 
 impl CellSerialize for WalletV5RSignBody {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack(self.wallet_id)?
             .pack_as::<_, UnixTimestamp>(self.valid_until)?
@@ -267,7 +267,7 @@ pub struct WalletV5R1SignedRequest {
 }
 
 impl CellSerialize for WalletV5R1SignedRequest {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.store(&self.body)?.pack(self.signature)?;
         Ok(())
     }
@@ -307,7 +307,7 @@ impl WalletV5R1MsgBody {
 }
 
 impl CellSerialize for WalletV5R1MsgBody {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Self::InternalSigned(msg) => builder.pack(Self::INTERNAL_SIGNED_PREFIX)?.store(msg)?,
             Self::InternalExtension(msg) => {
@@ -343,7 +343,7 @@ pub struct InternalExtensionWalletV5R1MsgBody {
 }
 
 impl CellSerialize for InternalExtensionWalletV5R1MsgBody {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.pack(self.query_id)?.store(&self.inner)?;
         Ok(())
     }
@@ -378,7 +378,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: OrdinaryCell = unpacked.single_root().unwrap().parse_fully().unwrap();
         assert_eq!(&got, WALLET_V5R1_CODE_CELL.as_ref());
     }
 }

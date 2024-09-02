@@ -8,8 +8,8 @@ use tlb::{
     },
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{NoArgs, ParseFully, Ref},
-    ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    Cell,
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
+    OrdinaryCell,
 };
 
 use crate::hashmap::HashmapE;
@@ -22,7 +22,7 @@ use crate::hashmap::HashmapE;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[autoimpl(Default)]
-pub struct StateInit<C = Cell, D = Cell> {
+pub struct StateInit<C = OrdinaryCell, D = OrdinaryCell> {
     pub split_depth: Option<u8>,
     pub special: Option<TickTock>,
     pub code: Option<C>,
@@ -61,7 +61,7 @@ where
     D: CellSerialize,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             // split_depth:(Maybe (## 5))
             .pack_as::<_, Option<NBits<5>>>(self.split_depth)?
@@ -140,12 +140,12 @@ impl BitUnpack for TickTock {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SimpleLib {
     pub public: bool,
-    pub root: Cell,
+    pub root: OrdinaryCell,
 }
 
 impl CellSerialize for SimpleLib {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.pack(self.public)?.store_as::<_, Ref>(&self.root)?;
         Ok(())
     }

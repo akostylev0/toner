@@ -7,9 +7,9 @@ use crate::{
         args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
     },
     ser::{
-        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
+        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, OrdinaryCellBuilder, CellBuilderError,
     },
-    Cell, ResultExt,
+    OrdinaryCell, ResultExt,
 };
 
 use super::Same;
@@ -22,7 +22,7 @@ where
     As: CellSerializeAs<T> + ?Sized,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.store_reference_as::<&T, &As>(source).context("^")?;
         Ok(())
     }
@@ -36,7 +36,7 @@ where
 
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         builder
@@ -81,7 +81,7 @@ where
     As: CellSerializeAs<T>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         EitherInlineOrRef::<NoArgs<(), As>>::store_as_with(source, builder, ())
     }
 }
@@ -95,10 +95,10 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
-        let mut b = Cell::builder();
+        let mut b = OrdinaryCell::builder();
         As::store_as_with(source, &mut b, args)?;
         let cell = b.into_cell();
         builder.store_as::<_, Either<Same, Ref>>(

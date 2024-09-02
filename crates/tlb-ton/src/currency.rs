@@ -6,7 +6,7 @@ use tlb::{
     bits::{de::BitReaderExt, r#as::VarInt, ser::BitWriterExt},
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{Data, NoArgs},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
+    ser::{OrdinaryCellBuilder, CellBuilderError, CellSerialize},
 };
 
 use crate::hashmap::HashmapE;
@@ -42,7 +42,7 @@ pub struct CurrencyCollection {
 
 impl CellSerialize for CurrencyCollection {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder
             .pack_as::<_, &Grams>(&self.grams)?
             .store(&self.other)?;
@@ -68,7 +68,7 @@ pub struct ExtraCurrencyCollection(pub HashmapE<BigUint>);
 
 impl CellSerialize for ExtraCurrencyCollection {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         builder.store_as_with::<_, &HashmapE<NoArgs<_, Data<VarInt<32>>>, NoArgs<_>>>(
             &self.0,
             (32, (), ()),

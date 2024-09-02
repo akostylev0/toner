@@ -11,17 +11,17 @@
 //!
 //! ```rust
 //! # use num_bigint::BigUint;
-//! # use tlb::Cell;
+//! # use tlb::OrdinaryCell;
 //! struct Hello {
 //!     pub query_id: u64,
 //!     pub amount: BigUint,
-//!     pub payload: Option<Cell>,
+//!     pub payload: Option<OrdinaryCell>,
 //! }
 //! ```
 //!
 //! ### **Ser**ialization
 //!
-//! To be able to **ser**ialize a type to [`Cell`], we should implement
+//! To be able to **ser**ialize a type to [`OrdinaryCell`], we should implement
 //! [`CellSerialize`](crate::ser::CellSerialize) on it:
 //!
 //! ```
@@ -29,18 +29,18 @@
 //! # use tlb::{
 //! #   r#as::Ref,
 //! #   bits::{r#as::{NBits, VarInt}, ser::BitWriterExt},
-//! #   Cell,
-//! #   ser::{CellSerialize, CellBuilder, CellBuilderError, CellSerializeExt},
+//! #   OrdinaryCell,
+//! #   ser::{CellSerialize, OrdinaryCellBuilder, CellBuilderError, CellSerializeExt},
 //! #   StringError,
 //! # };
 //! #
 //! # struct Hello {
 //! #     pub query_id: u64,
 //! #     pub amount: BigUint,
-//! #     pub payload: Option<Cell>,
+//! #     pub payload: Option<OrdinaryCell>,
 //! # }
 //! impl CellSerialize for Hello {
-//!     fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+//!     fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
 //!         builder
 //!             // tag$10
 //!             .pack_as::<_, NBits<2>>(0b10)?
@@ -68,7 +68,7 @@
 //!
 //! ### **De**serialization
 //!
-//! To be able to **de**serialize a type from [`Cell`], we should implement
+//! To be able to **de**serialize a type from [`OrdinaryCell`], we should implement
 //! [`CellDeserialize`](crate::de::CellDeserialize) on it:
 //!
 //! ```rust
@@ -76,20 +76,20 @@
 //! # use tlb::{
 //! #   r#as::{Ref, ParseFully},
 //! #   bits::{r#as::{NBits, VarInt}, de::BitReaderExt, ser::BitWriterExt},
-//! #   Cell,
+//! #   OrdinaryCell,
 //! #   de::{CellDeserialize, CellParser, CellParserError},
 //! #   Error,
-//! #   ser::{CellSerialize, CellBuilder, CellBuilderError, CellSerializeExt},
+//! #   ser::{CellSerialize, OrdinaryCellBuilder, CellBuilderError, CellSerializeExt},
 //! #   StringError,
 //! # };
 //! # #[derive(Debug, PartialEq)]
 //! # struct Hello {
 //! #     pub query_id: u64,
 //! #     pub amount: BigUint,
-//! #     pub payload: Option<Cell>,
+//! #     pub payload: Option<OrdinaryCell>,
 //! # }
 //! # impl CellSerialize for Hello {
-//! #     fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+//! #     fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
 //! #         builder
 //! #             // tag$10
 //! #             .pack_as::<_, NBits<2>>(0b10)?

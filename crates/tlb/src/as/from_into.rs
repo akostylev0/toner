@@ -9,7 +9,7 @@ use crate::{
     ser::{
         args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
         r#as::CellSerializeAs,
-        CellBuilder, CellBuilderError, CellSerialize,
+        OrdinaryCellBuilder, CellBuilderError, CellSerialize,
     },
     Error,
 };
@@ -22,7 +22,7 @@ where
     As: CellSerialize,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         source.clone().into().store(builder)
     }
 }
@@ -37,7 +37,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source.clone().into().store_with(builder, args)
@@ -75,7 +75,7 @@ where
     As: CellSerialize,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         source.into().store(builder)
     }
 }
@@ -90,7 +90,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source.into().store_with(builder, args)
@@ -129,7 +129,7 @@ where
     As: CellSerialize,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         source
             .clone()
             .try_into()
@@ -149,7 +149,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source
@@ -196,7 +196,7 @@ where
     As: CellSerialize,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         source.try_into().map_err(Error::custom)?.store(builder)
     }
 }
@@ -212,7 +212,7 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut OrdinaryCellBuilder,
         args: Self::Args,
     ) -> Result<(), CellBuilderError> {
         source
