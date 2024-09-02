@@ -3,7 +3,7 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::Ref,
     ser::{CellBuilder, CellBuilderError, CellSerialize},
-    OrdinaryCell, Error, ResultExt,
+    Cell, Error, ResultExt,
 };
 
 use crate::{currency::CurrencyCollection, library::LibRef, message::Message};
@@ -18,7 +18,7 @@ pub enum OutAction {
     /// ```tlb
     /// action_set_code#ad4de08e new_code:^Cell = OutAction;
     /// ```
-    SetCode(OrdinaryCell),
+    SetCode(Cell),
 
     /// ```tlb
     /// action_reserve_currency#36e6b809 mode:(## 8) currency:CurrencyCollection = OutAction;
@@ -80,7 +80,7 @@ impl<'de> CellDeserialize<'de> for OutAction {
 /// action_send_msg#0ec3c86d mode:(## 8) out_msg:^(MessageRelaxed Any) = OutAction;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SendMsgAction<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
+pub struct SendMsgAction<T = Cell, IC = Cell, ID = Cell> {
     /// See <https://docs.ton.org/develop/func/stdlib#send_raw_message>
     pub mode: u8,
     pub message: Message<T, IC, ID>,
@@ -145,7 +145,7 @@ impl<'de> CellDeserialize<'de> for ReserveCurrencyAction {
 /// action_change_library#26fa1dd4 mode:(## 7) libref:LibRef = OutAction;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChangeLibraryAction<R = OrdinaryCell> {
+pub struct ChangeLibraryAction<R = Cell> {
     pub mode: u8,
     pub libref: LibRef<R>,
 }

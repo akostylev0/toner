@@ -6,7 +6,7 @@ use crate::{
         ser::{BitWriter, LimitWriter},
     },
     r#as::Ref,
-    OrdinaryCell, Error, ResultExt,
+    Cell, Error, ResultExt,
 };
 
 use super::{
@@ -20,13 +20,13 @@ type CellBitWriter = LimitWriter<BitVec<u8, Msb0>>;
 /// [`Error`] for [`CellBuilder`]
 pub type CellBuilderError = <CellBuilder as BitWriter>::Error;
 
-/// Cell builder created with [`OrdinaryCell::builder()`].
+/// Cell builder created with [`Cell::builder()`].
 ///
-/// [`CellBuilder`] can then be converted to constructed [`OrdinaryCell`] by using
+/// [`CellBuilder`] can then be converted to constructed [`Cell`] by using
 /// [`.into_cell()`](CellBuilder::into_cell).
 pub struct CellBuilder {
     data: CellBitWriter,
-    references: Vec<Arc<OrdinaryCell>>,
+    references: Vec<Arc<Cell>>,
 }
 
 const MAX_BITS_LEN: usize = 1023;
@@ -199,11 +199,11 @@ impl CellBuilder {
         Ok(self)
     }
 
-    /// Convert builder to [`OrdinaryCell`]
+    /// Convert builder to [`Cell`]
     #[inline]
     #[must_use]
-    pub fn into_cell(self) -> OrdinaryCell {
-        OrdinaryCell {
+    pub fn into_cell(self) -> Cell {
+        Cell {
             data: self.data.into_inner(),
             references: self.references,
         }

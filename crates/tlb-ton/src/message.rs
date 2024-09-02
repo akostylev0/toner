@@ -10,7 +10,7 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{DefaultOnNone, EitherInlineOrRef},
     ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    OrdinaryCell, ResultExt,
+    Cell, ResultExt,
 };
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
 /// body:(Either X ^X) = Message X;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Message<T = OrdinaryCell, IC = OrdinaryCell, ID = OrdinaryCell> {
+pub struct Message<T = Cell, IC = Cell, ID = Cell> {
     pub info: CommonMsgInfo,
     pub init: Option<StateInit<IC, ID>>,
     pub body: T,

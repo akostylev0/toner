@@ -13,7 +13,7 @@ use crate::{
     bits::ser::BitWriterExt,
     either::Either,
     r#as::{Ref, Same},
-    OrdinaryCell, ResultExt,
+    Cell, ResultExt,
 };
 
 /// A type that can be **ser**ilalized into [`CellBuilder`].
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl CellSerialize for OrdinaryCell {
+impl CellSerialize for Cell {
     #[inline]
     fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
         builder
@@ -135,8 +135,8 @@ impl CellSerialize for OrdinaryCell {
 
 pub trait CellSerializeExt: CellSerialize {
     #[inline]
-    fn to_cell(&self) -> Result<OrdinaryCell, CellBuilderError> {
-        let mut builder = OrdinaryCell::builder();
+    fn to_cell(&self) -> Result<Cell, CellBuilderError> {
+        let mut builder = Cell::builder();
         self.store(&mut builder)?;
         Ok(builder.into_cell())
     }

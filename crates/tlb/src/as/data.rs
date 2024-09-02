@@ -23,7 +23,7 @@ use super::Same;
 /// #           de::{BitUnpack, BitReader, BitReaderExt},
 /// #           ser::{BitPack, BitWriter, BitWriterExt},
 /// #       },
-/// #       OrdinaryCell,
+/// #       Cell,
 /// #       StringError,
 /// # };
 /// # #[derive(Debug, Clone, Copy, PartialEq)]
@@ -52,7 +52,7 @@ use super::Same;
 ///
 /// # fn main() -> Result<(), StringError> {
 /// let v = BinaryData { field: 123 };
-/// # let mut builder = OrdinaryCell::builder();
+/// # let mut builder = Cell::builder();
 /// // store as binary data
 /// builder.store_as::<_, Data>(v)?;
 /// # let cell = builder.into_cell();

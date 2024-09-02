@@ -12,7 +12,7 @@ use crate::{
     bits::de::BitReaderExt,
     either::Either,
     r#as::{FromInto, Same},
-    OrdinaryCell, ResultExt,
+    Cell, ResultExt,
 };
 
 /// A type that can be **de**serialized from [`CellParser`].
@@ -138,7 +138,7 @@ where
     }
 }
 
-impl<'de> CellDeserialize<'de> for OrdinaryCell {
+impl<'de> CellDeserialize<'de> for Cell {
     #[inline]
     fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
         Ok(Self {

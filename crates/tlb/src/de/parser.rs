@@ -8,7 +8,7 @@ use crate::{
         bitvec::{order::Msb0, slice::BitSlice},
         de::BitReader,
     },
-    OrdinaryCell, Error,
+    Cell, Error,
 };
 
 use super::{
@@ -20,16 +20,16 @@ use super::{
 /// [`Error`] for [`CellParser`]
 pub type CellParserError<'de> = <CellParser<'de> as BitReader>::Error;
 
-/// Cell parser created with [`OrdinaryCell::parser()`].
+/// Cell parser created with [`Cell::parser()`].
 #[derive(Clone)]
 pub struct CellParser<'de> {
     pub(super) data: &'de BitSlice<u8, Msb0>,
-    pub(super) references: &'de [Arc<OrdinaryCell>],
+    pub(super) references: &'de [Arc<Cell>],
 }
 
 impl<'de> CellParser<'de> {
     #[inline]
-    pub(crate) const fn new(data: &'de BitSlice<u8, Msb0>, references: &'de [Arc<OrdinaryCell>]) -> Self {
+    pub(crate) const fn new(data: &'de BitSlice<u8, Msb0>, references: &'de [Arc<Cell>]) -> Self {
         Self { data, references }
     }
 
@@ -131,7 +131,7 @@ impl<'de> CellParser<'de> {
     }
 
     #[inline]
-    fn pop_reference(&mut self) -> Result<&'de Arc<OrdinaryCell>, CellParserError<'de>> {
+    fn pop_reference(&mut self) -> Result<&'de Arc<Cell>, CellParserError<'de>> {
         let (first, rest) = self
             .references
             .split_first()

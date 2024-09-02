@@ -8,7 +8,7 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{Data, NoArgs},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
-    OrdinaryCell, Error, ResultExt,
+    Cell, Error, ResultExt,
 };
 use tlb_ton::{
     action::{OutAction, SendMsgAction},
@@ -21,7 +21,7 @@ use tlb_ton::{
 use super::WalletVersion;
 
 lazy_static! {
-    static ref WALLET_V5R1_CODE_CELL: Arc<OrdinaryCell> = {
+    static ref WALLET_V5R1_CODE_CELL: Arc<Cell> = {
         BagOfCells::parse_base64(include_str!("./wallet_v5r1.code"))
             .unwrap()
             .single_root()
@@ -39,7 +39,7 @@ impl WalletVersion for V5R1 {
     type ExternalMsgBody = WalletV5R1MsgBody;
 
     #[inline]
-    fn code() -> Arc<OrdinaryCell> {
+    fn code() -> Arc<Cell> {
         WALLET_V5R1_CODE_CELL.clone()
     }
 
@@ -378,7 +378,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: OrdinaryCell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
         assert_eq!(&got, WALLET_V5R1_CODE_CELL.as_ref());
     }
 }

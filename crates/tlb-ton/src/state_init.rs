@@ -9,7 +9,7 @@ use tlb::{
     de::{CellDeserialize, CellParser, CellParserError},
     r#as::{NoArgs, ParseFully, Ref},
     ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    OrdinaryCell,
+    Cell,
 };
 
 use crate::hashmap::HashmapE;
@@ -22,7 +22,7 @@ use crate::hashmap::HashmapE;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[autoimpl(Default)]
-pub struct StateInit<C = OrdinaryCell, D = OrdinaryCell> {
+pub struct StateInit<C = Cell, D = Cell> {
     pub split_depth: Option<u8>,
     pub special: Option<TickTock>,
     pub code: Option<C>,
@@ -140,7 +140,7 @@ impl BitUnpack for TickTock {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SimpleLib {
     pub public: bool,
-    pub root: OrdinaryCell,
+    pub root: Cell,
 }
 
 impl CellSerialize for SimpleLib {

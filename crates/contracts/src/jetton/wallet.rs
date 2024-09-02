@@ -11,7 +11,7 @@ use tlb::{
     either::Either,
     r#as::{EitherInlineOrRef, ParseFully, Ref, Same},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
-    OrdinaryCell, Error,
+    Cell, Error,
 };
 use tlb_ton::MsgAddress;
 
@@ -22,7 +22,7 @@ use tlb_ton::MsgAddress;
 /// forward_ton_amount:(VarUInteger 16) forward_payload:(Either Cell ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonTransfer<P = OrdinaryCell, F = OrdinaryCell> {
+pub struct JettonTransfer<P = Cell, F = Cell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub dst: MsgAddress,
@@ -91,7 +91,7 @@ where
     }
 }
 
-pub enum ForwardPayload<T = OrdinaryCell> {
+pub enum ForwardPayload<T = Cell> {
     Data(T),
     Comment(ForwardPayloadComment),
 }
@@ -179,7 +179,7 @@ impl BitUnpack for ForwardPayloadComment {
 /// sender:MsgAddress forward_payload:(Either Cell ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonTransferNotification<P = OrdinaryCell> {
+pub struct JettonTransferNotification<P = Cell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub sender: MsgAddress,
@@ -226,7 +226,7 @@ where
 /// response_destination:MsgAddress custom_payload:(Maybe ^Cell)
 /// = InternalMsgBody;
 /// ```
-pub struct JettonBurn<P = OrdinaryCell> {
+pub struct JettonBurn<P = Cell> {
     pub query_id: u64,
     pub amount: BigUint,
     pub response_dst: MsgAddress,
