@@ -479,6 +479,7 @@ impl BitUnpack for RawBagOfCells {
     }
 }
 
+/// Types of [Cell] (https://docs.ton.org/develop/data-formats/exotic-cells).
 #[repr(u8)]
 #[derive(PartialEq, Eq, Debug, Clone, Hash, Copy, FromRepr)]
 pub(crate) enum RawCellType {
