@@ -16,7 +16,7 @@ use tlb::{
         r#as::{NBits, VarNBytes},
         ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
     },
-    OrdinaryCell, Error, ResultExt, StringError,
+    Cell, Error, OrdinaryCell, ResultExt, StringError,
 };
 
 /// Alias to [`BagOfCells`]
@@ -35,12 +35,13 @@ pub type BoC = BagOfCells;
 /// # };
 /// # use tlb_ton::{boc::{BagOfCells, BagOfCellsArgs}, MsgAddress};
 /// # fn main() -> Result<(), StringError> {
+/// use tlb::Cell;
 /// let addr = MsgAddress::NULL;
 /// let mut builder = OrdinaryCell::builder();
 /// builder.pack(addr)?;
 /// let root = builder.into_cell();
 ///
-/// let boc = BagOfCells::from_root(root);
+/// let boc = BagOfCells::from_root(Cell::Ordinary(root));
 /// let packed = pack_with(boc, BagOfCellsArgs {
 ///     has_idx: false,
 ///     has_crc32c: true,
@@ -58,13 +59,13 @@ pub type BoC = BagOfCells;
 /// ```
 #[derive(Clone)]
 pub struct BagOfCells {
-    roots: Vec<Arc<OrdinaryCell>>,
+    roots: Vec<Arc<Cell>>,
 }
 
 impl BagOfCells {
     /// Create from single root cell
     #[inline]
-    pub fn from_root(root: impl Into<Arc<OrdinaryCell>>) -> Self {
+    pub fn from_root(root: impl Into<Arc<Cell>>) -> Self {
         Self {
             roots: [root.into()].into(),
         }
@@ -72,25 +73,26 @@ impl BagOfCells {
 
     /// Add root
     #[inline]
-    pub fn add_root(&mut self, root: impl Into<Arc<OrdinaryCell>>) {
+    pub fn add_root(&mut self, root: impl Into<Arc<Cell>>) {
         self.roots.push(root.into())
     }
 
     /// Return single root or `None` otherwise
     #[inline]
-    pub fn single_root(&self) -> Option<&Arc<OrdinaryCell>> {
+    pub fn single_root(&self) -> Option<&Arc<Cell>> {
         let [root]: &[_; 1] = self.roots.as_slice().try_into().ok()?;
+
         Some(root)
     }
 
     /// Traverses all cells, fills all_cells set and inbound references map.
     fn traverse_cell_tree(
-        cell: &Arc<OrdinaryCell>,
-        all_cells: &mut HashSet<Arc<OrdinaryCell>>,
-        in_refs: &mut HashMap<Arc<OrdinaryCell>, HashSet<Arc<OrdinaryCell>>>,
+        cell: &Arc<Cell>,
+        all_cells: &mut HashSet<Arc<Cell>>,
+        in_refs: &mut HashMap<Arc<Cell>, HashSet<Arc<Cell>>>,
     ) -> Result<(), StringError> {
         if all_cells.insert(cell.clone()) {
-            for r in &cell.references {
+            for r in cell.references() {
                 if r == cell {
                     return Err(Error::custom("cell must not reference itself"));
                 }
@@ -169,23 +171,23 @@ impl BitPackWithArgs for BagOfCells {
     where
         W: BitWriter,
     {
-        let mut all_cells: HashSet<Arc<OrdinaryCell>> = HashSet::new();
-        let mut in_refs: HashMap<Arc<OrdinaryCell>, HashSet<Arc<OrdinaryCell>>> = HashMap::new();
+        let mut all_cells: HashSet<Arc<Cell>> = HashSet::new();
+        let mut in_refs: HashMap<Arc<Cell>, HashSet<Arc<Cell>>> = HashMap::new();
         for r in &self.roots {
             Self::traverse_cell_tree(r, &mut all_cells, &mut in_refs).map_err(Error::custom)?;
         }
-        let mut no_in_refs: HashSet<Arc<OrdinaryCell>> = HashSet::new();
+        let mut no_in_refs: HashSet<Arc<Cell>> = HashSet::new();
         for c in &all_cells {
             if !in_refs.contains_key(c) {
                 no_in_refs.insert(c.clone());
             }
         }
-        let mut ordered_cells: Vec<Arc<OrdinaryCell>> = Vec::new();
-        let mut indices: HashMap<Arc<OrdinaryCell>, u32> = HashMap::new();
+        let mut ordered_cells: Vec<Arc<Cell>> = Vec::new();
+        let mut indices: HashMap<Arc<Cell>, u32> = HashMap::new();
         while let Some(cell) = no_in_refs.iter().next().cloned() {
             ordered_cells.push(cell.clone());
             indices.insert(cell.clone(), indices.len() as u32);
-            for child in &cell.references {
+            for child in cell.references() {
                 if let Some(refs) = in_refs.get_mut(child) {
                     refs.remove(&cell);
                     if refs.is_empty() {
@@ -203,15 +205,17 @@ impl BitPackWithArgs for BagOfCells {
         RawBagOfCells {
             cells: ordered_cells
                 .into_iter()
-                .map(|cell| RawCell {
-                    r#type: RawCellType::Ordinary,
-                    data: cell.data.clone(),
-                    references: cell
-                        .references
-                        .iter()
-                        .map(|c| *indices.get(c).unwrap())
-                        .collect(),
-                    level: cell.level(),
+                .map(|cell| match cell.as_ref() {
+                    Cell::Ordinary(cell) => RawCell {
+                        r#type: RawCellType::Ordinary,
+                        data: cell.data.clone(),
+                        references: cell
+                            .references
+                            .iter()
+                            .map(|c| *indices.get(c).unwrap())
+                            .collect(),
+                        level: cell.level(),
+                    },
                 })
                 .collect(),
             roots: self
@@ -266,10 +270,10 @@ impl BitUnpack for BagOfCells {
     {
         let raw = RawBagOfCells::unpack(reader)?;
         let num_cells = raw.cells.len();
-        let mut cells: Vec<Arc<OrdinaryCell>> = Vec::new();
+        let mut cells: Vec<Arc<Cell>> = Vec::new();
         for (i, raw_cell) in raw.cells.into_iter().enumerate().rev() {
             cells.push(
-                OrdinaryCell {
+                Cell::Ordinary(OrdinaryCell {
                     data: raw_cell.data,
                     references: raw_cell
                         .references
@@ -283,7 +287,7 @@ impl BitUnpack for BagOfCells {
                             Ok(cells[num_cells - 1 - r as usize].clone())
                         })
                         .collect::<Result<_, _>>()?,
-                }
+                })
                 .into(),
             );
         }

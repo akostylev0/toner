@@ -15,13 +15,14 @@ use crate::{
         CellDeserialize, CellParser, CellParserError,
     },
     ser::OrdinaryCellBuilder,
+    Cell,
 };
 
 /// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
-    pub references: Vec<Arc<Self>>,
+    pub references: Vec<Arc<Cell>>,
 }
 
 impl OrdinaryCell {
@@ -117,7 +118,7 @@ impl OrdinaryCell {
         self.references
             .iter()
             .map(Deref::deref)
-            .map(OrdinaryCell::level)
+            .map(Cell::level)
             .max()
             .unwrap_or(0)
     }
@@ -137,11 +138,11 @@ impl OrdinaryCell {
     }
 
     #[inline]
-    fn max_depth(&self) -> u16 {
+    pub fn max_depth(&self) -> u16 {
         self.references
             .iter()
             .map(Deref::deref)
-            .map(OrdinaryCell::max_depth)
+            .map(Cell::max_depth)
             .max()
             .map(|d| d + 1)
             .unwrap_or(0)
@@ -178,7 +179,7 @@ impl OrdinaryCell {
             self.references
                 .iter()
                 .map(Deref::deref)
-                .flat_map(OrdinaryCell::hash),
+                .flat_map(Cell::hash),
         );
 
         buf

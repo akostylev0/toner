@@ -6,7 +6,7 @@ use crate::{
         ser::{BitWriter, LimitWriter},
     },
     r#as::Ref,
-    OrdinaryCell, Error, ResultExt,
+    Cell, Error, OrdinaryCell, ResultExt,
 };
 
 use super::{
@@ -26,7 +26,7 @@ pub type CellBuilderError = <OrdinaryCellBuilder as BitWriter>::Error;
 /// [`.into_cell()`](OrdinaryCellBuilder::into_cell).
 pub struct OrdinaryCellBuilder {
     data: CellBitWriter,
-    references: Vec<Arc<OrdinaryCell>>,
+    references: Vec<Arc<Cell>>,
 }
 
 const MAX_BITS_LEN: usize = 1023;
@@ -179,7 +179,8 @@ impl OrdinaryCellBuilder {
         self.ensure_reference()?;
         let mut builder = Self::new();
         builder.store_as::<T, As>(value)?;
-        self.references.push(builder.into_cell().into());
+        self.references
+            .push(Cell::Ordinary(builder.into_cell()).into());
         Ok(self)
     }
 
@@ -195,7 +196,8 @@ impl OrdinaryCellBuilder {
         self.ensure_reference()?;
         let mut builder = Self::new();
         builder.store_as_with::<T, As>(value, args)?;
-        self.references.push(builder.into_cell().into());
+        self.references
+            .push(Cell::Ordinary(builder.into_cell()).into());
         Ok(self)
     }
 

@@ -8,7 +8,7 @@ use crate::{
         bitvec::{order::Msb0, slice::BitSlice},
         de::BitReader,
     },
-    OrdinaryCell, Error,
+    Cell, Error,
 };
 
 use super::{
@@ -23,13 +23,13 @@ pub type CellParserError<'de> = <CellParser<'de> as BitReader>::Error;
 /// Cell parser created with [`OrdinaryCell::parser()`].
 #[derive(Clone)]
 pub struct CellParser<'de> {
-    pub(super) data: &'de BitSlice<u8, Msb0>,
-    pub(super) references: &'de [Arc<OrdinaryCell>],
+    pub data: &'de BitSlice<u8, Msb0>,
+    pub references: &'de [Arc<Cell>],
 }
 
 impl<'de> CellParser<'de> {
     #[inline]
-    pub(crate) const fn new(data: &'de BitSlice<u8, Msb0>, references: &'de [Arc<OrdinaryCell>]) -> Self {
+    pub(crate) const fn new(data: &'de BitSlice<u8, Msb0>, references: &'de [Arc<Cell>]) -> Self {
         Self { data, references }
     }
 
@@ -131,7 +131,7 @@ impl<'de> CellParser<'de> {
     }
 
     #[inline]
-    fn pop_reference(&mut self) -> Result<&'de Arc<OrdinaryCell>, CellParserError<'de>> {
+    fn pop_reference(&mut self) -> Result<&'de Arc<Cell>, CellParserError<'de>> {
         let (first, rest) = self
             .references
             .split_first()
@@ -145,7 +145,9 @@ impl<'de> CellParser<'de> {
     where
         As: CellDeserializeAs<'de, T> + ?Sized,
     {
-        self.pop_reference()?.parse_fully_as::<T, As>()
+        self.pop_reference()?
+            .as_ordinary()?
+            .parse_fully_as::<T, As>()
     }
 
     #[inline]
@@ -156,7 +158,9 @@ impl<'de> CellParser<'de> {
     where
         As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
     {
-        self.pop_reference()?.parse_fully_as_with::<T, As>(args)
+        self.pop_reference()?
+            .as_ordinary()?
+            .parse_fully_as_with::<T, As>(args)
     }
 
     #[inline]
