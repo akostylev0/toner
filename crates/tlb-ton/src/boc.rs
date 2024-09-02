@@ -7,6 +7,7 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crc::Crc;
+use strum::FromRepr;
 use tlb::{
     bits::{
         bitvec::{order::Msb0, vec::BitVec, view::AsBits},
@@ -16,6 +17,7 @@ use tlb::{
     },
     Cell, Error, ResultExt, StringError,
 };
+use tlb::bits::ser::BitPack;
 
 /// Alias to [`BagOfCells`]
 pub type BoC = BagOfCells;
@@ -477,13 +479,37 @@ impl BitUnpack for RawBagOfCells {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Hash, Copy)]
+#[repr(u8)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash, Copy, FromRepr)]
 pub(crate) enum RawCellType {
-    Ordinary,
-    PrunedBranch,
-    LibraryReference,
-    MerkleProof,
-    MerkleUpdate
+    Ordinary = 255_u8,
+    PrunedBranch = 1_u8,
+    LibraryReference = 2_u8,
+    MerkleProof = 3_u8,
+    MerkleUpdate = 4_u8,
+}
+
+impl BitUnpack for RawCellType {
+    fn unpack<R>(mut reader: R) -> Result<Self, R::Error> where R: BitReader {
+        let raw_type = reader.unpack()?;
+
+        Ok(RawCellType::from_repr(raw_type)
+            .ok_or_else(|| Error::custom(format!("unknown cell type: {}", raw_type)))?)
+    }
+}
+
+impl BitPack for RawCellType {
+    fn pack<W>(&self, mut writer: W) -> Result<(), W::Error> where W: BitWriter {
+        writer.pack(*self as u8)?;
+
+        Ok(())
+    }
+}
+
+impl RawCellType {
+    pub fn is_exotic(&self) -> bool {
+        !matches!(self, RawCellType::Ordinary)
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
@@ -515,13 +541,7 @@ impl BitUnpackWithArgs for RawCell {
         };
         let full_bytes = (bits_descriptor & 1) == 0;
         let r#type = if is_exotic {
-            match reader.unpack::<u8>()? {
-                1 => RawCellType::PrunedBranch,
-                2 => RawCellType::LibraryReference,
-                3 => RawCellType::MerkleProof,
-                4 => RawCellType::MerkleUpdate,
-                _ => return Err(Error::custom("unexpected exotic cell type")),
-            }
+            reader.unpack::<RawCellType>()?
         } else {
             RawCellType::Ordinary
         };
@@ -558,15 +578,19 @@ impl BitPackWithArgs for RawCell {
         W: BitWriter,
     {
         let level: u8 = 0;
-        let is_exotic: u8 = 0;
+        let is_exotic: u8 = if self.r#type.is_exotic() { 1 } else { 0 };
         let refs_descriptor: u8 = self.references.len() as u8 + is_exotic * 8 + level * 32;
         writer.pack(refs_descriptor)?;
 
-        let padding_bits = self.data.len() % 8;
+        let full_data_len = self.data.len() + (is_exotic as usize * 8);
+        let padding_bits = full_data_len % 8;
         let full_bytes = padding_bits == 0;
-        let data_bytes = (self.data.len() + 7) / 8;
+        let data_bytes = (full_data_len + 7) / 8;
         let bits_descriptor: u8 = data_bytes as u8 * 2 - if full_bytes { 0 } else { 1 }; // subtract 1 if the last byte is not full
         writer.pack(bits_descriptor)?;
+        if self.r#type.is_exotic() {
+            writer.pack(self.r#type)?;
+        }
 
         writer.pack(self.data.as_bitslice())?;
         if !full_bytes {
