@@ -216,6 +216,12 @@ impl BitPackWithArgs for BagOfCells {
                             .collect(),
                         level: cell.level(),
                     },
+                    Cell::LibraryReference(cell) => RawCell {
+                        r#type: RawCellType::LibraryReference,
+                        data: cell.repr_hash.as_bits().into(),
+                        references: Vec::default(),
+                        level: 0,
+                    }
                 })
                 .collect(),
             roots: self

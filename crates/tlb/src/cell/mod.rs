@@ -1,6 +1,9 @@
 pub mod ordinary;
+pub mod library_reference;
 
 pub use self::ordinary::*;
+pub use self::library_reference::*;
+
 use crate::de::r#as::CellDeserializeAs;
 use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::ser::{CellBuilderError, CellSerialize, OrdinaryCellBuilder};
@@ -11,12 +14,14 @@ use tlbits::{Error, StringError};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Cell {
     Ordinary(OrdinaryCell),
+    LibraryReference(LibraryReference),
 }
 
 impl Cell {
-    pub fn references(&self) -> impl Iterator<Item = &Arc<Cell>> {
+    pub fn references(&self) -> &[Arc<Cell>] {
         match self {
-            Cell::Ordinary(ordinary) => ordinary.references.iter(),
+            Cell::Ordinary(ordinary) => ordinary.references.as_slice(),
+            Cell::LibraryReference(_) => &[],
         }
     }
 }
@@ -28,6 +33,7 @@ impl Cell {
     {
         match self {
             Cell::Ordinary(cell) => cell.parse_fully(),
+            Cell::LibraryReference(_) => todo!()
         }
     }
 
@@ -38,6 +44,7 @@ impl Cell {
     {
         match self {
             Cell::Ordinary(cell) => cell.parse_fully_as::<T, As>(),
+            Cell::LibraryReference(_) => todo!()
         }
     }
 }
@@ -55,18 +62,21 @@ impl Cell {
     pub fn level(&self) -> u8 {
         match self {
             Cell::Ordinary(ordinary) => ordinary.level(),
+            Cell::LibraryReference(_) => 0
         }
     }
 
     pub fn max_depth(&self) -> u16 {
         match self {
             Cell::Ordinary(ordinary) => ordinary.max_depth(),
+            Cell::LibraryReference(_) => 0
         }
     }
 
     pub fn hash(&self) -> [u8; 32] {
         match self {
             Cell::Ordinary(ordinary) => ordinary.hash(),
+            Cell::LibraryReference(library_reference) => library_reference.repr_hash,
         }
     }
 }
@@ -76,6 +86,7 @@ impl CellSerialize for Cell {
     fn store(&self, builder: &mut OrdinaryCellBuilder) -> Result<(), CellBuilderError> {
         match self {
             Cell::Ordinary(cell) => cell.store(builder),
+            Cell::LibraryReference(_) => todo!(),
         }
     }
 }
