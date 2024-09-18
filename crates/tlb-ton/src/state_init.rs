@@ -1,16 +1,10 @@
 //! Collection of types related to [StateInit](https://docs.ton.org/develop/data-formats/msg-tlb#stateinit-tl-b)
 use impl_tools::autoimpl;
-use tlb::{
-    bits::{
-        de::{BitReader, BitReaderExt, BitUnpack},
-        r#as::NBits,
-        ser::{BitPack, BitWriter, BitWriterExt},
-    },
-    de::{CellDeserialize, CellParser, CellParserError},
-    r#as::{NoArgs, ParseFully, Ref},
-    ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    Cell,
-};
+use tlb::{bits::{
+    de::{BitReader, BitReaderExt, BitUnpack},
+    r#as::NBits,
+    ser::{BitPack, BitWriter, BitWriterExt},
+}, de::{CellDeserialize, CellParser, CellParserError}, r#as::{NoArgs, ParseFully, Ref}, ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt}, Cell, OrdinaryCell};
 
 use crate::hashmap::HashmapE;
 
@@ -55,13 +49,13 @@ where
     }
 }
 
-impl<C, D> CellSerialize for StateInit<C, D>
+impl<C, D> CellSerialize<OrdinaryCell> for StateInit<C, D>
 where
-    C: CellSerialize,
-    D: CellSerialize,
+    C: CellSerialize<OrdinaryCell>,
+    D: CellSerialize<OrdinaryCell>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             // split_depth:(Maybe (## 5))
             .pack_as::<_, Option<NBits<5>>>(self.split_depth)?
@@ -143,9 +137,9 @@ pub struct SimpleLib {
     pub root: Cell,
 }
 
-impl CellSerialize for SimpleLib {
+impl CellSerialize<OrdinaryCell> for SimpleLib {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.pack(self.public)?.store_as::<_, Ref>(&self.root)?;
         Ok(())
     }

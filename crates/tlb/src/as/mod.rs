@@ -14,46 +14,43 @@ mod same;
 
 pub use self::{args::*, data::*, default::*, from_into::*, fully::*, reference::*, same::*};
 
-use crate::{
-    de::{
-        args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
-        r#as::CellDeserializeAs,
-        CellDeserialize, CellParser, CellParserError,
-    },
-    ser::{
-        args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
-        r#as::CellSerializeAs,
-        CellBuilder, CellBuilderError, CellSerialize,
-    },
-};
+use crate::{de::{
+    args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
+    r#as::CellDeserializeAs,
+    CellDeserialize, CellParser, CellParserError,
+}, ser::{
+    args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
+    r#as::CellSerializeAs,
+    CellBuilder, CellBuilderError, CellSerialize,
+}, CellMarker};
 
 pub use tlbits::r#as::AsWrap;
 
-impl<'a, T, As> CellSerialize for AsWrap<&'a T, As>
+impl<'a, C, T, As> CellSerialize<C> for AsWrap<&'a T, As>
 where
     T: ?Sized,
     As: ?Sized,
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<C, T>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         As::store_as(self.into_inner(), builder)
     }
 }
 
-impl<'a, T, As> CellSerializeWithArgs for AsWrap<&'a T, As>
+impl<'a, C, T, As> CellSerializeWithArgs<C> for AsWrap<&'a T, As>
 where
     T: ?Sized,
-    As: CellSerializeAsWithArgs<T> + ?Sized,
+    As: CellSerializeAsWithArgs<C, T> + ?Sized,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         As::store_as_with(self.into_inner(), builder, args)
     }
 }

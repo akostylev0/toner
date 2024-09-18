@@ -2,12 +2,7 @@
 use lazy_static::lazy_static;
 use num_bigint::BigUint;
 use num_traits::One;
-use tlb::{
-    bits::{de::BitReaderExt, r#as::VarInt, ser::BitWriterExt},
-    de::{CellDeserialize, CellParser, CellParserError},
-    r#as::{Data, NoArgs},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-};
+use tlb::{bits::{de::BitReaderExt, r#as::VarInt, ser::BitWriterExt}, de::{CellDeserialize, CellParser, CellParserError}, r#as::{Data, NoArgs}, ser::{CellBuilder, CellBuilderError, CellSerialize}, OrdinaryCell};
 
 use crate::hashmap::HashmapE;
 
@@ -40,9 +35,9 @@ pub struct CurrencyCollection {
     pub other: ExtraCurrencyCollection,
 }
 
-impl CellSerialize for CurrencyCollection {
+impl CellSerialize<OrdinaryCell> for CurrencyCollection {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             .pack_as::<_, &Grams>(&self.grams)?
             .store(&self.other)?;
@@ -66,9 +61,9 @@ impl<'de> CellDeserialize<'de> for CurrencyCollection {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ExtraCurrencyCollection(pub HashmapE<BigUint>);
 
-impl CellSerialize for ExtraCurrencyCollection {
+impl CellSerialize<OrdinaryCell> for ExtraCurrencyCollection {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.store_as_with::<_, &HashmapE<NoArgs<_, Data<VarInt<32>>>, NoArgs<_>>>(
             &self.0,
             (32, (), ()),

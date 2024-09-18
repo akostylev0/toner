@@ -16,30 +16,30 @@ use crate::{
 
 pub use crate::bits::r#as::{FromInto, FromIntoRef, TryFromInto, TryFromIntoRef};
 
-impl<T, As> CellSerializeAs<T> for FromInto<As>
+impl<C, T, As> CellSerializeAs<C, T> for FromInto<As>
 where
     T: Into<As> + Clone,
-    As: CellSerialize,
+    As: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.clone().into().store(builder)
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for FromInto<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for FromInto<As>
 where
     T: Into<As> + Clone,
-    As: CellSerializeWithArgs,
+    As: CellSerializeWithArgs<C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         source.clone().into().store_with(builder, args)
     }
 }
@@ -69,30 +69,30 @@ where
     }
 }
 
-impl<T, As> CellSerializeAs<T> for FromIntoRef<As>
+impl<C, T, As> CellSerializeAs<C, T> for FromIntoRef<As>
 where
     for<'a> &'a T: Into<As>,
-    As: CellSerialize,
+    As: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.into().store(builder)
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for FromIntoRef<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for FromIntoRef<As>
 where
     for<'a> &'a T: Into<As>,
-    As: CellSerializeWithArgs,
+    As: CellSerializeWithArgs<C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         source.into().store_with(builder, args)
     }
 }
@@ -122,14 +122,14 @@ where
     }
 }
 
-impl<T, As> CellSerializeAs<T> for TryFromInto<As>
+impl<C, T, As> CellSerializeAs<C, T> for TryFromInto<As>
 where
     T: TryInto<As> + Clone,
     <T as TryInto<As>>::Error: Display,
-    As: CellSerialize,
+    As: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source
             .clone()
             .try_into()
@@ -138,20 +138,20 @@ where
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for TryFromInto<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for TryFromInto<As>
 where
     T: TryInto<As> + Clone,
     <T as TryInto<As>>::Error: Display,
-    As: CellSerializeWithArgs,
+    As: CellSerializeWithArgs<C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         source
             .clone()
             .try_into()
@@ -189,32 +189,32 @@ where
     }
 }
 
-impl<T, As> CellSerializeAs<T> for TryFromIntoRef<As>
+impl<C, T, As> CellSerializeAs<C, T> for TryFromIntoRef<As>
 where
     for<'a> &'a T: TryInto<As>,
     for<'a> <&'a T as TryInto<As>>::Error: Display,
-    As: CellSerialize,
+    As: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.try_into().map_err(Error::custom)?.store(builder)
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for TryFromIntoRef<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for TryFromIntoRef<As>
 where
     for<'a> &'a T: TryInto<As> + Clone,
     for<'a> <&'a T as TryInto<As>>::Error: Display,
-    As: CellSerializeWithArgs,
+    As: CellSerializeWithArgs<C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         source
             .clone()
             .try_into()

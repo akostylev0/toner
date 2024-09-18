@@ -1,17 +1,11 @@
 //! Collection of typs related to [Message](https://docs.ton.org/develop/data-formats/msg-tlb#message-tl-b)
 use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
-use tlb::{
-    bits::{
-        de::{BitReader, BitReaderExt, BitUnpack},
-        r#as::NBits,
-        ser::{BitPack, BitWriter, BitWriterExt},
-    },
-    de::{CellDeserialize, CellParser, CellParserError},
-    r#as::{DefaultOnNone, EitherInlineOrRef},
-    ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt},
-    Cell, ResultExt,
-};
+use tlb::{bits::{
+    de::{BitReader, BitReaderExt, BitUnpack},
+    r#as::NBits,
+    ser::{BitPack, BitWriter, BitWriterExt},
+}, de::{CellDeserialize, CellParser, CellParserError}, r#as::{DefaultOnNone, EitherInlineOrRef}, ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeExt}, Cell, OrdinaryCell, ResultExt};
 
 use crate::{
     currency::{CurrencyCollection, ExtraCurrencyCollection, Grams},
@@ -67,13 +61,13 @@ impl Message<()> {
     }
 }
 
-impl<T, IC, ID> CellSerialize for Message<T, IC, ID>
+impl<T, IC, ID> CellSerialize<OrdinaryCell> for Message<T, IC, ID>
 where
-    T: CellSerialize,
-    IC: CellSerialize,
-    ID: CellSerialize,
+    T: CellSerialize<OrdinaryCell>,
+    IC: CellSerialize<OrdinaryCell>,
+    ID: CellSerialize<OrdinaryCell>,
 {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             // info:CommonMsgInfo
             .store(&self.info)?
@@ -131,9 +125,9 @@ impl CommonMsgInfo {
     }
 }
 
-impl CellSerialize for CommonMsgInfo {
+impl CellSerialize<OrdinaryCell> for CommonMsgInfo {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         match self {
             Self::Internal(msg) => builder
                 // int_msg_info$0
@@ -225,8 +219,8 @@ impl InternalMsgInfo {
     }
 }
 
-impl CellSerialize for InternalMsgInfo {
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+impl CellSerialize<OrdinaryCell> for InternalMsgInfo {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             .pack(self.ihr_disabled)?
             .pack(self.bounce)?
