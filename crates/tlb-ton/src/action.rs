@@ -1,10 +1,4 @@
-use tlb::{
-    bits::{de::BitReaderExt, r#as::NBits, ser::BitWriterExt},
-    de::{CellDeserialize, CellParser, CellParserError},
-    r#as::Ref,
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell, Error, ResultExt,
-};
+use tlb::{bits::{de::BitReaderExt, r#as::NBits, ser::BitWriterExt}, de::{CellDeserialize, CellParser, CellParserError}, r#as::Ref, ser::{CellBuilder, CellBuilderError, CellSerialize}, Cell, Error, OrdinaryCell, ResultExt};
 
 use crate::{currency::CurrencyCollection, library::LibRef, message::Message};
 
@@ -38,9 +32,9 @@ impl OutAction {
     const CHANGE_LIBRARY_PREFIX: u32 = 0x26fa1dd4;
 }
 
-impl CellSerialize for OutAction {
+impl CellSerialize<OrdinaryCell> for OutAction {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         match self {
             OutAction::SendMsg(action) => builder.pack(Self::SEND_MSG_PREFIX)?.store(action)?,
             OutAction::SetCode(new_code) => builder
@@ -86,14 +80,14 @@ pub struct SendMsgAction<T = Cell, IC = Cell, ID = Cell> {
     pub message: Message<T, IC, ID>,
 }
 
-impl<T, IC, ID> CellSerialize for SendMsgAction<T, IC, ID>
+impl<T, IC, ID> CellSerialize<OrdinaryCell> for SendMsgAction<T, IC, ID>
 where
-    T: CellSerialize,
-    IC: CellSerialize,
-    ID: CellSerialize,
+    T: CellSerialize<OrdinaryCell>,
+    IC: CellSerialize<OrdinaryCell>,
+    ID: CellSerialize<OrdinaryCell>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.pack(self.mode)?.store_as::<_, Ref>(&self.message)?;
         Ok(())
     }
@@ -123,9 +117,9 @@ pub struct ReserveCurrencyAction {
     pub currency: CurrencyCollection,
 }
 
-impl CellSerialize for ReserveCurrencyAction {
+impl CellSerialize<OrdinaryCell> for ReserveCurrencyAction {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.pack(self.mode)?.store(&self.currency)?;
         Ok(())
     }
@@ -150,12 +144,12 @@ pub struct ChangeLibraryAction<R = Cell> {
     pub libref: LibRef<R>,
 }
 
-impl<R> CellSerialize for ChangeLibraryAction<R>
+impl<R> CellSerialize<OrdinaryCell> for ChangeLibraryAction<R>
 where
-    R: CellSerialize,
+    R: CellSerialize<OrdinaryCell>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             .pack_as::<_, NBits<7>>(self.mode)?
             .store(&self.libref)?;

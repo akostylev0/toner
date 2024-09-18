@@ -5,6 +5,7 @@ use bitvec::prelude::BitVec;
 use std::cmp::max;
 use std::sync::Arc;
 use sha2::{Digest, Sha256};
+use crate::cell::CellMarker;
 use crate::cell_type::CellType;
 use crate::level_mask::LevelMask;
 
@@ -13,6 +14,8 @@ pub struct MerkleProofCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
 }
+
+impl CellMarker for MerkleProofCell {}
 
 impl HigherHash for MerkleProofCell {
     fn level_mask(&self) -> LevelMask {

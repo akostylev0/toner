@@ -4,11 +4,14 @@ use crate::level_mask::LevelMask;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
+use crate::cell::CellMarker;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PrunedBranchCell {
     pub data: BitVec<u8, Msb0>,
 }
+
+impl CellMarker for PrunedBranchCell {}
 
 impl HigherHash for PrunedBranchCell {
     fn level_mask(&self) -> LevelMask {

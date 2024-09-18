@@ -1,23 +1,17 @@
 use std::iter::once;
 
 use impl_tools::autoimpl;
-use tlb::{
-    bits::{
-        bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
-        de::BitReaderExt,
-        ser::BitWriterExt,
-    },
-    de::{
-        args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
-        CellParser, CellParserError,
-    },
-    r#as::{ParseFully, Ref, Same},
-    ser::{
-        args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
-        CellBuilder, CellBuilderError,
-    },
-    Error, ResultExt,
-};
+use tlb::{bits::{
+    bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
+    de::BitReaderExt,
+    ser::BitWriterExt,
+}, de::{
+    args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
+    CellParser, CellParserError,
+}, r#as::{ParseFully, Ref, Same}, ser::{
+    args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
+    CellBuilder, CellBuilderError,
+}, Error, OrdinaryCell, ResultExt};
 
 use super::hm_label::HmLabel;
 
@@ -37,11 +31,11 @@ pub struct HashmapAugE<T, E = ()> {
     pub extra: E,
 }
 
-impl<T, AsT, E, AsE> CellSerializeAsWithArgs<HashmapAugE<T, E>> for HashmapAugE<AsT, AsE>
+impl<T, AsT, E, AsE> CellSerializeAsWithArgs<OrdinaryCell, HashmapAugE<T, E>> for HashmapAugE<AsT, AsE>
 where
-    AsT: CellSerializeAsWithArgs<T>,
+    AsT: CellSerializeAsWithArgs<OrdinaryCell, T>,
     AsT::Args: Clone,
-    AsE: CellSerializeAsWithArgs<E>,
+    AsE: CellSerializeAsWithArgs<OrdinaryCell, E>,
     AsE::Args: Clone,
 {
     /// (n, AsT::Args, AsE::Args)
@@ -50,9 +44,9 @@ where
     #[inline]
     fn store_as_with(
         source: &HashmapAugE<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         (n, node_args, extra_args): Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             .store_as_with::<_, &HashmapE<AsT, AsE>>(&source.m, (n, node_args, extra_args.clone()))?
             // extra:Y
@@ -158,11 +152,11 @@ impl<T, E> HashmapE<T, E> {
     }
 }
 
-impl<T, AsT, E, AsE> CellSerializeAsWithArgs<HashmapE<T, E>> for HashmapE<AsT, AsE>
+impl<T, AsT, E, AsE> CellSerializeAsWithArgs<OrdinaryCell, HashmapE<T, E>> for HashmapE<AsT, AsE>
 where
-    AsT: CellSerializeAsWithArgs<T>,
+    AsT: CellSerializeAsWithArgs<OrdinaryCell, T>,
     AsT::Args: Clone,
-    AsE: CellSerializeAsWithArgs<E>,
+    AsE: CellSerializeAsWithArgs<OrdinaryCell, E>,
     AsE::Args: Clone,
 {
     // (n, AsT::Args, AsE::Args)
@@ -171,9 +165,9 @@ where
     #[inline]
     fn store_as_with(
         source: &HashmapE<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         match source {
             HashmapE::Empty => builder
                 // hme_empty$0
@@ -188,11 +182,11 @@ where
     }
 }
 
-impl<T, E> CellSerializeWithArgs for HashmapE<T, E>
+impl<T, E> CellSerializeWithArgs<OrdinaryCell> for HashmapE<T, E>
 where
-    T: CellSerializeWithArgs,
+    T: CellSerializeWithArgs<OrdinaryCell>,
     T::Args: Clone,
-    E: CellSerializeWithArgs,
+    E: CellSerializeWithArgs<OrdinaryCell>,
     E::Args: Clone,
 {
     // (n, T::Args, E::Args)
@@ -201,9 +195,9 @@ where
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.store_as_with::<_, Same>(self, args)?;
         Ok(())
     }
@@ -329,11 +323,11 @@ impl<T, E> Hashmap<T, E> {
     }
 }
 
-impl<T, AsT, E, AsE> CellSerializeAsWithArgs<Hashmap<T, E>> for Hashmap<AsT, AsE>
+impl<T, AsT, E, AsE> CellSerializeAsWithArgs<OrdinaryCell, Hashmap<T, E>> for Hashmap<AsT, AsE>
 where
-    AsT: CellSerializeAsWithArgs<T>,
+    AsT: CellSerializeAsWithArgs<OrdinaryCell, T>,
     AsT::Args: Clone,
-    AsE: CellSerializeAsWithArgs<E>,
+    AsE: CellSerializeAsWithArgs<OrdinaryCell, E>,
     AsE::Args: Clone,
 {
     /// (n, AsT::Args, AsE::Args)
@@ -341,9 +335,9 @@ where
 
     fn store_as_with(
         source: &Hashmap<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         (n, node_args, extra_args): Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             // label:(HmLabel ~l n)
             .pack_as_with::<_, &HmLabel>(source.prefix.as_bitslice(), n)

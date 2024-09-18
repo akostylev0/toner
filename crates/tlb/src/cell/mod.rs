@@ -40,6 +40,8 @@ pub enum Cell {
     MerkleProof(MerkleProofCell),
 }
 
+pub trait CellMarker {}
+
 impl Default for Cell {
     fn default() -> Self {
         Cell::Ordinary(OrdinaryCell::default())
@@ -110,7 +112,7 @@ impl Cell {
     /// Create new [`CellBuilder`]
     #[inline]
     #[must_use]
-    pub const fn builder() -> CellBuilder {
+    pub const fn builder<C>() -> CellBuilder<C> {
         CellBuilder::new()
     }
 

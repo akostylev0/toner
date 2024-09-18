@@ -8,16 +8,12 @@ use base64::{
 };
 use crc::Crc;
 use strum::Display;
-use tlb::{
-    bits::{
-        bitvec::{order::Msb0, vec::BitVec},
-        de::{BitReader, BitReaderExt, BitUnpack},
-        r#as::{NBits, VarBits},
-        ser::{BitPack, BitWriter, BitWriterExt},
-    },
-    ser::{CellBuilderError, CellSerialize, CellSerializeExt},
-    Error, ResultExt, StringError,
-};
+use tlb::{bits::{
+    bitvec::{order::Msb0, vec::BitVec},
+    de::{BitReader, BitReaderExt, BitUnpack},
+    r#as::{NBits, VarBits},
+    ser::{BitPack, BitWriter, BitWriterExt},
+}, ser::{CellBuilderError, CellSerialize, CellSerializeExt}, Error, OrdinaryCell, ResultExt, StringError};
 
 use crate::state_init::StateInit;
 
@@ -58,10 +54,10 @@ impl MsgAddress {
     pub fn derive<C, D>(
         workchain_id: i32,
         state_init: StateInit<C, D>,
-    ) -> Result<Self, CellBuilderError>
+    ) -> Result<Self, CellBuilderError<OrdinaryCell>>
     where
-        C: CellSerialize,
-        D: CellSerialize,
+        C: CellSerialize<OrdinaryCell>,
+        D: CellSerialize<OrdinaryCell>,
     {
         Ok(Self {
             workchain_id,

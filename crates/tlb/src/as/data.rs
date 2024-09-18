@@ -66,18 +66,18 @@ use super::Same;
 /// ```
 pub struct Data<As: ?Sized = Same>(PhantomData<As>);
 
-impl<T, As> CellSerializeAs<T> for Data<As>
+impl<C, T, As> CellSerializeAs<C, T> for Data<As>
 where
     As: BitPackAs<T> + ?Sized,
     T: ?Sized,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         As::pack_as(source, builder)
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for Data<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for Data<As>
 where
     As: BitPackAsWithArgs<T> + ?Sized,
     T: ?Sized,
@@ -87,9 +87,9 @@ where
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         As::pack_as_with(source, builder, args)
     }
 }

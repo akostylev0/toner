@@ -13,28 +13,28 @@ use crate::{
 
 pub use crate::bits::r#as::Same;
 
-impl<T> CellSerializeAs<T> for Same
+impl<C, T> CellSerializeAs<C, T> for Same
 where
-    T: CellSerialize,
+    T: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.store(builder)
     }
 }
 
-impl<T> CellSerializeAsWithArgs<T> for Same
+impl<C, T> CellSerializeAsWithArgs<C, T> for Same
 where
-    T: CellSerializeWithArgs,
+    T: CellSerializeWithArgs<C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         T::store_with(source, builder, args)
     }
 }

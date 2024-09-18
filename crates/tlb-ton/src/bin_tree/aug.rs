@@ -1,9 +1,4 @@
-use tlb::{
-    bits::{de::BitReaderExt, ser::BitWriterExt},
-    de::{args::r#as::CellDeserializeAsWithArgs, CellParser, CellParserError},
-    r#as::{ParseFully, Ref},
-    ser::{args::r#as::CellSerializeAsWithArgs, CellBuilder, CellBuilderError},
-};
+use tlb::{bits::{de::BitReaderExt, ser::BitWriterExt}, de::{args::r#as::CellDeserializeAsWithArgs, CellParser, CellParserError}, r#as::{ParseFully, Ref}, ser::{args::r#as::CellSerializeAsWithArgs, CellBuilder, CellBuilderError}, OrdinaryCell};
 
 /// [`BinTreeAug X Y`](https://docs.ton.org/develop/data-formats/tl-b-types#bintree)  
 /// ```tlb
@@ -16,11 +11,11 @@ pub struct BinTreeAug<T, E = ()> {
     pub extra: E,
 }
 
-impl<T, AsT, E, AsE> CellSerializeAsWithArgs<BinTreeAug<T, E>> for BinTreeAug<AsT, AsE>
+impl<T, AsT, E, AsE> CellSerializeAsWithArgs<OrdinaryCell, BinTreeAug<T, E>> for BinTreeAug<AsT, AsE>
 where
-    AsT: CellSerializeAsWithArgs<T>,
+    AsT: CellSerializeAsWithArgs<OrdinaryCell, T>,
     AsT::Args: Clone,
-    AsE: CellSerializeAsWithArgs<E>,
+    AsE: CellSerializeAsWithArgs<OrdinaryCell, E>,
     AsE::Args: Clone,
 {
     type Args = (AsT::Args, AsE::Args);
@@ -28,9 +23,9 @@ where
     #[inline]
     fn store_as_with(
         source: &BinTreeAug<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         (args, extra_args): Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder
             .store_as_with::<_, &AsE>(&source.extra, extra_args.clone())?
             .store_as_with::<_, &BinTreeNode<AsT, AsE>>(&source.node, (args, extra_args))?;
@@ -73,11 +68,11 @@ pub enum BinTreeNode<T, E = ()> {
     Fork([Box<BinTreeAug<T, E>>; 2]),
 }
 
-impl<T, AsT, E, AsE> CellSerializeAsWithArgs<BinTreeNode<T, E>> for BinTreeNode<AsT, AsE>
+impl<T, AsT, E, AsE> CellSerializeAsWithArgs<OrdinaryCell, BinTreeNode<T, E>> for BinTreeNode<AsT, AsE>
 where
-    AsT: CellSerializeAsWithArgs<T>,
+    AsT: CellSerializeAsWithArgs<OrdinaryCell, T>,
     AsT::Args: Clone,
-    AsE: CellSerializeAsWithArgs<E>,
+    AsE: CellSerializeAsWithArgs<OrdinaryCell, E>,
     AsE::Args: Clone,
 {
     type Args = (AsT::Args, AsE::Args);
@@ -85,9 +80,9 @@ where
     #[inline]
     fn store_as_with(
         source: &BinTreeNode<T, E>,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<OrdinaryCell>,
         (args, extra_args): Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<OrdinaryCell>> {
         match source {
             BinTreeNode::Leaf(leaf) => builder.pack(false)?.store_as_with::<_, &AsT>(leaf, args)?,
             BinTreeNode::Fork(fork) => builder

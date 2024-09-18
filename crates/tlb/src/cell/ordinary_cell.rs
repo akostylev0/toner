@@ -6,12 +6,15 @@ use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
+use crate::cell::CellMarker;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
 }
+
+impl CellMarker for OrdinaryCell {}
 
 impl HigherHash for OrdinaryCell {
     fn level_mask(&self) -> LevelMask {

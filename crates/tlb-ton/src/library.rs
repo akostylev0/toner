@@ -1,10 +1,4 @@
-use tlb::{
-    de::{CellDeserialize, CellParser, CellParserError},
-    either::Either,
-    r#as::{Data, Ref},
-    ser::{CellBuilder, CellBuilderError, CellSerialize},
-    Cell,
-};
+use tlb::{de::{CellDeserialize, CellParser, CellParserError}, either::Either, r#as::{Data, Ref}, ser::{CellBuilder, CellBuilderError, CellSerialize}, Cell, OrdinaryCell};
 
 /// ```tlb
 /// libref_hash$0 lib_hash:bits256 = LibRef;
@@ -16,12 +10,12 @@ pub enum LibRef<R = Cell> {
     Ref(R),
 }
 
-impl<R> CellSerialize for LibRef<R>
+impl<R> CellSerialize<OrdinaryCell> for LibRef<R>
 where
-    R: CellSerialize,
+    R: CellSerialize<OrdinaryCell>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<OrdinaryCell>) -> Result<(), CellBuilderError<OrdinaryCell>> {
         builder.store_as::<_, Either<Data, Ref>>(match self {
             Self::Hash(hash) => Either::Left(hash),
             Self::Ref(library) => Either::Right(library),

@@ -17,28 +17,28 @@ use super::Same;
 /// Adapter to **de**/**ser**ialize value from/into reference to the child cell.
 pub struct Ref<As: ?Sized = Same>(PhantomData<As>);
 
-impl<T, As> CellSerializeAs<T> for Ref<As>
+impl<C, T, As> CellSerializeAs<C, T> for Ref<As>
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<C, T> + ?Sized,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         builder.store_reference_as::<&T, &As>(source).context("^")?;
         Ok(())
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for Ref<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for Ref<As>
 where
-    As: CellSerializeAsWithArgs<T> + ?Sized,
+    As: CellSerializeAsWithArgs<C, T> + ?Sized,
 {
     type Args = As::Args;
 
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         builder
             .store_reference_as_with::<&T, &As>(source, args)
             .context("^")?;
@@ -76,28 +76,28 @@ where
 /// ```
 pub struct EitherInlineOrRef<As: ?Sized = Same>(PhantomData<As>);
 
-impl<T, As> CellSerializeAs<T> for EitherInlineOrRef<As>
+impl<C, T, As> CellSerializeAs<C, T> for EitherInlineOrRef<As>
 where
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<C, T>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         EitherInlineOrRef::<NoArgs<(), As>>::store_as_with(source, builder, ())
     }
 }
 
-impl<T, As> CellSerializeAsWithArgs<T> for EitherInlineOrRef<As>
+impl<C, T, As> CellSerializeAsWithArgs<C, T> for EitherInlineOrRef<As>
 where
-    As: CellSerializeAsWithArgs<T>,
+    As: CellSerializeAsWithArgs<C, T>,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         let mut b = Cell::builder();
         As::store_as_with(source, &mut b, args)?;
         let cell = b.into_cell();
