@@ -47,6 +47,18 @@ impl<'de, C> CellParser<'de, C> {
     {
         As::parse_as(self)
     }
+
+    /// Return iterator that parses values using [`CellDeserialize`]
+    /// implementation.
+    #[inline]
+    pub fn parse_iter<T>(&mut self) -> impl Iterator<Item = Result<T, CellParserError<'de, C>>> + '_
+    where
+        T: CellDeserialize<'de, C>,
+    {
+        iter::repeat_with(move || self.parse())
+            .enumerate()
+            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
+    }
 }
 
 pub type OrdinaryCellParser<'de> = CellParser<'de, OrdinaryCell>;
@@ -64,18 +76,6 @@ impl<'de> OrdinaryCellParser<'de> {
             data,
             references,
         }
-    }
-
-    /// Return iterator that parses values using [`CellDeserialize`]
-    /// implementation.
-    #[inline]
-    pub fn parse_iter<T>(&mut self) -> impl Iterator<Item = Result<T, OrdinaryCellParserError<'de>>> + '_
-    where
-        T: CellDeserialize<'de>,
-    {
-        iter::repeat_with(move || self.parse())
-            .enumerate()
-            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
     }
 
     /// Parse the value with args using its [`CellDeserializeWithArgs`]
