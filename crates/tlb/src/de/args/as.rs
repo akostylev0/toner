@@ -1,12 +1,8 @@
 use core::mem::MaybeUninit;
 use std::{rc::Rc, sync::Arc};
 
-use crate::{
-    either::Either,
-    r#as::{AsWrap, NoArgs},
-    ResultExt,
-};
-
+use crate::{either::Either, r#as::{AsWrap, NoArgs}, OrdinaryCell, ResultExt};
+use crate::de::{CellParser, CellParserError};
 use super::{
     super::{OrdinaryCellParser, OrdinaryCellParserError},
     CellDeserializeWithArgs,
@@ -17,14 +13,14 @@ use super::{
 ///
 /// For version without arguments, see
 /// [`CellDeserializeAs`](super::super::as::CellDeserializeAs).
-pub trait CellDeserializeAsWithArgs<'de, T> {
+pub trait CellDeserializeAsWithArgs<'de, T, C = OrdinaryCell> {
     type Args;
 
     /// Parse value with args using an adapter
     fn parse_as_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>>;
+    ) -> Result<T, CellParserError<'de, C>>;
 }
 
 /// Owned version of [`CellDeserializeAsWithArgs`]

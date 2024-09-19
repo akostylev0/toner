@@ -59,6 +59,56 @@ impl<'de, C> CellParser<'de, C> {
             .enumerate()
             .map(|(i, v)| v.with_context(|| format!("[{i}]")))
     }
+
+    /// Parse the value with args using its [`CellDeserializeWithArgs`]
+    /// implementation.
+    #[inline]
+    pub fn parse_with<T>(&mut self, args: T::Args) -> Result<T, CellParserError<'de, C>>
+    where
+        T: CellDeserializeWithArgs<'de, C>,
+    {
+        T::parse_with(self, args)
+    }
+
+    /// Return iterator that parses values with args using
+    /// [`CellDeserializeWithArgs`] implementation.
+    #[inline]
+    pub fn parse_iter_with<'a: 'de, T>(
+        &mut self,
+        args: T::Args,
+    ) -> impl Iterator<Item = Result<T, CellParserError<'de, C>>> + '_
+    where
+        T: CellDeserializeWithArgs<'de, C>,
+        T::Args: Clone + 'a,
+    {
+        iter::repeat_with(move || self.parse_with(args.clone()))
+            .enumerate()
+            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
+    }
+
+    /// Returns iterator that parses values using an adapter.
+    /// See [`as`](crate::as) module-level documentation for more.
+    #[inline]
+    pub fn parse_iter_as<T, As>(
+        &mut self,
+    ) -> impl Iterator<Item = Result<T, CellParserError<'de, C>>> + '_
+    where
+        As: CellDeserializeAs<'de, T, C> + ?Sized,
+    {
+        iter::repeat_with(move || self.parse_as::<_, As>())
+            .enumerate()
+            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
+    }
+
+    /// Parse value with args using an adapter.
+    /// See [`as`](crate::as) module-level documentation for more.
+    #[inline]
+    pub fn parse_as_with<T, As>(&mut self, args: As::Args) -> Result<T, CellParserError<'de, C>>
+    where
+        As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
+    {
+        As::parse_as_with(self, args)
+    }
 }
 
 pub type OrdinaryCellParser<'de> = CellParser<'de, OrdinaryCell>;
@@ -76,56 +126,6 @@ impl<'de> OrdinaryCellParser<'de> {
             data,
             references,
         }
-    }
-
-    /// Parse the value with args using its [`CellDeserializeWithArgs`]
-    /// implementation.
-    #[inline]
-    pub fn parse_with<T>(&mut self, args: T::Args) -> Result<T, OrdinaryCellParserError<'de>>
-    where
-        T: CellDeserializeWithArgs<'de>,
-    {
-        T::parse_with(self, args)
-    }
-
-    /// Return iterator that parses values with args using
-    /// [`CellDeserializeWithArgs`] implementation.
-    #[inline]
-    pub fn parse_iter_with<'a: 'de, T>(
-        &mut self,
-        args: T::Args,
-    ) -> impl Iterator<Item = Result<T, OrdinaryCellParserError<'de>>> + '_
-    where
-        T: CellDeserializeWithArgs<'de>,
-        T::Args: Clone + 'a,
-    {
-        iter::repeat_with(move || self.parse_with(args.clone()))
-            .enumerate()
-            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
-    }
-
-    /// Returns iterator that parses values using an adapter.  
-    /// See [`as`](crate::as) module-level documentation for more.
-    #[inline]
-    pub fn parse_iter_as<T, As>(
-        &mut self,
-    ) -> impl Iterator<Item = Result<T, OrdinaryCellParserError<'de>>> + '_
-    where
-        As: CellDeserializeAs<'de, T> + ?Sized,
-    {
-        iter::repeat_with(move || self.parse_as::<_, As>())
-            .enumerate()
-            .map(|(i, v)| v.with_context(|| format!("[{i}]")))
-    }
-
-    /// Parse value with args using an adapter.  
-    /// See [`as`](crate::as) module-level documentation for more.
-    #[inline]
-    pub fn parse_as_with<T, As>(&mut self, args: As::Args) -> Result<T, OrdinaryCellParserError<'de>>
-    where
-        As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
-    {
-        As::parse_as_with(self, args)
     }
 
     /// Returns iterator that parses values with args using an adapter.  
