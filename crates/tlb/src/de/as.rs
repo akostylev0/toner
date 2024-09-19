@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::Arc};
 
 use crate::{either::Either, r#as::AsWrap, OrdinaryCell, ResultExt};
 
-use super::{CellDeserialize, CellParser, CellParserError, OrdinaryCellParser, OrdinaryCellParserError};
+use super::{CellDeserialize, CellParser, CellParserError};
 
 /// Adapter to **de**serialize `T`.  
 /// See [`as`](crate::as) module-level documentation for more.
@@ -34,13 +34,13 @@ where
 
 macro_rules! impl_cell_deserialize_as_for_tuple {
     ($($n:tt:$t:ident as $a:ident),+) => {
-        impl<'de, $($t, $a),+> CellDeserializeAs<'de, ($($t,)+)> for ($($a,)+)
+        impl<'de, C, $($t, $a),+> CellDeserializeAs<'de, ($($t,)+), C> for ($($a,)+)
         where $(
-            $a: CellDeserializeAs<'de, $t>,
+            $a: CellDeserializeAs<'de, $t, C>,
         )+
         {
             #[inline]
-            fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<($($t,)+), OrdinaryCellParserError<'de>> {
+            fn parse_as(parser: &mut CellParser<'de, C>) -> Result<($($t,)+), CellParserError<'de, C>> {
                 Ok(($(
                     AsWrap::<$t, $a>::parse(parser)
                         .context(concat!(".", stringify!($n)))?
@@ -61,36 +61,36 @@ impl_cell_deserialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as 
 impl_cell_deserialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as As3,4:T4 as As4,5:T5 as As5,6:T6 as As6,7:T7 as As7,8:T8 as As8);
 impl_cell_deserialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as As3,4:T4 as As4,5:T5 as As5,6:T6 as As6,7:T7 as As7,8:T8 as As8,9:T9 as As9);
 
-impl<'de, T, As> CellDeserializeAs<'de, Box<T>> for Box<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, Box<T>, C> for Box<As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Box<T>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Box<T>, CellParserError<'de, C>> {
         AsWrap::<T, As>::parse(parser)
             .map(AsWrap::into_inner)
             .map(Box::new)
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, Rc<T>> for Rc<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, Rc<T>, C> for Rc<As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Rc<T>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Rc<T>, CellParserError<'de, C>> {
         AsWrap::<T, As>::parse(parser)
             .map(AsWrap::into_inner)
             .map(Rc::new)
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, Arc<T>> for Arc<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, Arc<T>, C> for Arc<As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Arc<T>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Arc<T>, CellParserError<'de, C>> {
         AsWrap::<T, As>::parse(parser)
             .map(AsWrap::into_inner)
             .map(Arc::new)
@@ -134,12 +134,12 @@ where
 /// nothing$0 {X:Type} = Maybe X;
 /// just$1 {X:Type} value:X = Maybe X;
 /// ```
-impl<'de, T, As> CellDeserializeAs<'de, Option<T>> for Option<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, Option<T>, C> for Option<As>
 where
-    As: CellDeserializeAs<'de, T>,
+    As: CellDeserializeAs<'de, T, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Option<T>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Option<T>, CellParserError<'de, C>> {
         Ok(Option::<AsWrap<T, As>>::parse(parser)?.map(AsWrap::into_inner))
     }
 }
