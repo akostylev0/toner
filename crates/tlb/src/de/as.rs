@@ -15,15 +15,15 @@ pub trait CellDeserializeAs<'de, T, C = OrdinaryCell> {
 }
 
 /// Owned version of [`CellDeserializeAs`]
-pub trait CellDeserializeAsOwned<T>: for<'de> CellDeserializeAs<'de, T> {}
-impl<T, As> CellDeserializeAsOwned<As> for T where T: for<'de> CellDeserializeAs<'de, As> + ?Sized {}
+pub trait CellDeserializeAsOwned<T, C = OrdinaryCell>: for<'de> CellDeserializeAs<'de, T, C> {}
+impl<T, As, C> CellDeserializeAsOwned<As, C> for T where T: for<'de> CellDeserializeAs<'de, As, C> + ?Sized {}
 
-impl<'de, T, As, const N: usize> CellDeserializeAs<'de, [T; N]> for [As; N]
+impl<'de, T, As, const N: usize, C> CellDeserializeAs<'de, [T; N], C> for [As; N]
 where
-    As: CellDeserializeAs<'de, T>,
+    As: CellDeserializeAs<'de, T, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<[T; N], OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<[T; N], CellParserError<'de, C>> {
         let mut arr: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
         for a in &mut arr {
             a.write(parser.parse_as::<T, As>()?);
@@ -102,14 +102,14 @@ where
 /// left$0 {X:Type} {Y:Type} value:X = Either X Y;
 /// right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 /// ```
-impl<'de, Left, Right, AsLeft, AsRight> CellDeserializeAs<'de, Either<Left, Right>>
+impl<'de, Left, Right, AsLeft, AsRight, C> CellDeserializeAs<'de, Either<Left, Right>, C>
     for Either<AsLeft, AsRight>
 where
-    AsLeft: CellDeserializeAs<'de, Left>,
-    AsRight: CellDeserializeAs<'de, Right>,
+    AsLeft: CellDeserializeAs<'de, Left, C>,
+    AsRight: CellDeserializeAs<'de, Right, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Either<Left, Right>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Either<Left, Right>, CellParserError<'de, C>> {
         Ok(
             Either::<AsWrap<Left, AsLeft>, AsWrap<Right, AsRight>>::parse(parser)?
                 .map_either(AsWrap::into_inner, AsWrap::into_inner),
@@ -117,12 +117,12 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, Option<T>> for Either<(), As>
+impl<'de, T, As, C> CellDeserializeAs<'de, Option<T>, C> for Either<(), As>
 where
-    As: CellDeserializeAs<'de, T>,
+    As: CellDeserializeAs<'de, T, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<Option<T>, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<Option<T>, CellParserError<'de, C>> {
         Ok(Either::<(), AsWrap<T, As>>::parse(parser)?
             .map_right(AsWrap::into_inner)
             .right())

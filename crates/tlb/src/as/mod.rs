@@ -28,6 +28,7 @@ use crate::{
 };
 
 pub use tlbits::r#as::AsWrap;
+use crate::de::{CellParser, CellParserError};
 
 impl<'a, T, As> CellSerialize for AsWrap<&'a T, As>
 where
@@ -58,12 +59,12 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserialize<'de> for AsWrap<T, As>
+impl<'de, T, As, C> CellDeserialize<'de, C> for AsWrap<T, As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         As::parse_as(parser).map(Self::new)
     }
 }

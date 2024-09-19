@@ -109,13 +109,13 @@ where
 /// left$0 {X:Type} {Y:Type} value:X = Either X Y;
 /// right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 /// ```
-impl<'de, Left, Right> CellDeserialize<'de> for Either<Left, Right>
+impl<'de, Left, Right, C> CellDeserialize<'de, C> for Either<Left, Right>
 where
-    Left: CellDeserialize<'de>,
-    Right: CellDeserialize<'de>,
+    Left: CellDeserialize<'de, C>,
+    Right: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         match parser.unpack().context("tag")? {
             false => parser.parse().map(Either::Left).context("left"),
             true => parser.parse().map(Either::Right).context("right"),
@@ -128,12 +128,12 @@ where
 /// nothing$0 {X:Type} = Maybe X;
 /// just$1 {X:Type} value:X = Maybe X;
 /// ```
-impl<'de, T> CellDeserialize<'de> for Option<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Option<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, Either<(), Same>>()
     }
 }

@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub use crate::bits::r#as::Same;
+use crate::de::{CellParser, CellParserError};
 
 impl<T> CellSerializeAs<T> for Same
 where
@@ -39,12 +40,12 @@ where
     }
 }
 
-impl<'de, T> CellDeserializeAs<'de, T> for Same
+impl<'de, T, C> CellDeserializeAs<'de, T, C> for Same
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         T::parse(parser)
     }
 }

@@ -29,6 +29,15 @@ pub struct CellParser<'de, T> {
 }
 
 impl<'de, C> CellParser<'de, C> {
+    /// Parse the value using its [`CellDeserialize`] implementation
+    #[inline]
+    pub fn parse<T>(&mut self) -> Result<T, CellParserError<'de, C>>
+    where
+        T: CellDeserialize<'de, C>,
+    {
+        T::parse(self)
+    }
+
     /// Parse the value using an adapter.
     /// See [`as`](crate::as) module-level documentation for more.
     #[inline]
@@ -55,15 +64,6 @@ impl<'de> OrdinaryCellParser<'de> {
             data,
             references,
         }
-    }
-
-    /// Parse the value using its [`CellDeserialize`] implementation
-    #[inline]
-    pub fn parse<T>(&mut self) -> Result<T, OrdinaryCellParserError<'de>>
-    where
-        T: CellDeserialize<'de>,
-    {
-        T::parse(self)
     }
 
     /// Return iterator that parses values using [`CellDeserialize`]
