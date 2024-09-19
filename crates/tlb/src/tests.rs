@@ -19,7 +19,7 @@ where
             .wrap_as::<As>()
             .to_cell()
             .unwrap()
-            .parse_fully_as::<T, As>()
+            .parse_fully_as::<T, As, _>()
             .unwrap(),
         value
     )

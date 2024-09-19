@@ -109,34 +109,16 @@ impl<'de, C> CellParser<'de, C> {
     {
         As::parse_as_with(self, args)
     }
-}
 
-pub type OrdinaryCellParser<'de> = CellParser<'de, OrdinaryCell>;
-
-impl<'de> OrdinaryCellParser<'de> {
-    #[inline]
-    pub const fn new(
-        level: u8,
-        data: &'de BitSlice<u8, Msb0>,
-        references: &'de [Arc<Cell>],
-    ) -> Self {
-        Self {
-            _type: PhantomData,
-            level,
-            data,
-            references,
-        }
-    }
-
-    /// Returns iterator that parses values with args using an adapter.  
+    /// Returns iterator that parses values with args using an adapter.
     /// See [`as`](crate::as) module-level documentation for more.
     #[inline]
     pub fn parse_iter_as_with<'a: 'de, T, As>(
         &mut self,
         args: As::Args,
-    ) -> impl Iterator<Item = Result<T, OrdinaryCellParserError<'de>>> + '_
+    ) -> impl Iterator<Item = Result<T, CellParserError<'de, C>>> + '_
     where
-        As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+        As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
         As::Args: Clone + 'a,
     {
         iter::repeat_with(move || self.parse_as_with::<_, As>(args.clone()))
@@ -145,7 +127,7 @@ impl<'de> OrdinaryCellParser<'de> {
     }
 
     #[inline]
-    fn pop_reference(&mut self) -> Result<&'de Arc<Cell>, OrdinaryCellParserError<'de>> {
+    fn pop_reference(&mut self) -> Result<&'de Arc<Cell>, CellParserError<'de, C>> {
         let (first, rest) = self
             .references
             .split_first()
@@ -155,22 +137,22 @@ impl<'de> OrdinaryCellParser<'de> {
     }
 
     #[inline]
-    pub(crate) fn parse_reference_as<T, As>(&mut self) -> Result<T, OrdinaryCellParserError<'de>>
+    pub(crate) fn parse_reference_as<T, As, X>(&mut self) -> Result<T, CellParserError<'de, X>>
     where
-        As: CellDeserializeAs<'de, T> + ?Sized,
+        As: CellDeserializeAs<'de, T, X> + ?Sized,
     {
-        self.pop_reference()?.parse_fully_as::<T, As>()
+        self.pop_reference()?.parse_fully_as::<T, As, X>()
     }
 
     #[inline]
-    pub(crate) fn parse_reference_as_with<T, As>(
+    pub(crate) fn parse_reference_as_with<T, As, X>(
         &mut self,
         args: As::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>>
+    ) -> Result<T, CellParserError<'de, X>>
     where
-        As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+        As: CellDeserializeAsWithArgs<'de, T, X> + ?Sized,
     {
-        self.pop_reference()?.parse_fully_as_with::<T, As>(args)
+        self.pop_reference()?.parse_fully_as_with::<T, As, X>(args)
     }
 
     #[inline]
@@ -201,7 +183,7 @@ impl<'de> OrdinaryCellParser<'de> {
 
     /// Returns an error if this parser has more data or references.
     #[inline]
-    pub fn ensure_empty(&self) -> Result<(), OrdinaryCellParserError<'de>> {
+    pub fn ensure_empty(&self) -> Result<(), CellParserError<'de, C>> {
         if !self.is_empty() {
             return Err(Error::custom(format!(
                 "more data left: {} bits, {} references",
@@ -211,7 +193,23 @@ impl<'de> OrdinaryCellParser<'de> {
         }
         Ok(())
     }
+
+    #[inline]
+    pub const fn new(
+        level: u8,
+        data: &'de BitSlice<u8, Msb0>,
+        references: &'de [Arc<Cell>],
+    ) -> Self {
+        Self {
+            _type: PhantomData,
+            level,
+            data,
+            references,
+        }
+    }
 }
+
+pub type OrdinaryCellParser<'de> = CellParser<'de, OrdinaryCell>;
 
 impl<'de, C> BitReader for CellParser<'de, C> {
     type Error = <&'de BitSlice<u8, Msb0> as BitReader>::Error;

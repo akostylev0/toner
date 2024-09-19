@@ -1,9 +1,10 @@
 use crate::{
-    de::{r#as::CellDeserializeAs, OrdinaryCellParser, OrdinaryCellParserError},
+    de::r#as::CellDeserializeAs,
     ser::{r#as::CellSerializeAs, CellBuilder, CellBuilderError},
 };
 
 pub use crate::bits::r#as::DefaultOnNone;
+use crate::de::{CellParser, CellParserError};
 
 impl<T, As> CellSerializeAs<Option<T>> for DefaultOnNone<As>
 where
@@ -19,13 +20,13 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for DefaultOnNone<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for DefaultOnNone<As>
 where
     T: Default,
-    As: CellDeserializeAs<'de, T>,
+    As: CellDeserializeAs<'de, T, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         parser
             .parse_as::<_, Option<As>>()
             .map(Option::unwrap_or_default)

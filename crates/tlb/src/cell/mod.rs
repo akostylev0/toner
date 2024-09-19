@@ -31,6 +31,7 @@ use crate::{
     },
     ser::CellBuilder,
 };
+use crate::de::{CellParser, CellParserError};
 
 /// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -214,8 +215,8 @@ impl Cell {
     /// Return [`OrdinaryCellParser`] for this cell
     #[inline]
     #[must_use]
-    pub fn parser(&self) -> OrdinaryCellParser<'_> {
-        OrdinaryCellParser::new(
+    pub fn parser<C>(&self) -> CellParser<'_, C> {
+        CellParser::new(
             self.level(),
             self.as_bitslice(),
             self.references(),
@@ -248,9 +249,9 @@ impl Cell {
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as()`](OrdinaryCellParser::parse_as)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
     #[inline]
-    pub fn parse_fully_as<'de, T, As>(&'de self) -> Result<T, OrdinaryCellParserError<'de>>
+    pub fn parse_fully_as<'de, T, As, C>(&'de self) -> Result<T, CellParserError<'de, C>>
     where
-        As: CellDeserializeAs<'de, T> + ?Sized,
+        As: CellDeserializeAs<'de, T, C> + ?Sized,
     {
         let mut parser = self.parser();
         let v = parser.parse_as::<T, As>()?;
@@ -260,12 +261,12 @@ impl Cell {
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as_with()`](OrdinaryCellParser::parse_as_with)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
     #[inline]
-    pub fn parse_fully_as_with<'de, T, As>(
+    pub fn parse_fully_as_with<'de, T, As, C>(
         &'de self,
         args: As::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>>
+    ) -> Result<T, CellParserError<'de, C>>
     where
-        As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+        As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
     {
         let mut parser = self.parser();
         let v = parser.parse_as_with::<T, As>(args)?;

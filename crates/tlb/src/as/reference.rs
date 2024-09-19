@@ -11,7 +11,7 @@ use crate::{
     },
     Cell, ResultExt,
 };
-
+use crate::de::{CellParser, CellParserError};
 use super::Same;
 
 /// Adapter to **de**/**ser**ialize value from/into reference to the child cell.
@@ -46,28 +46,28 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for Ref<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for Ref<As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>> {
-        parser.parse_reference_as::<T, As>().context("^")
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
+        parser.parse_reference_as::<T, As, C>().context("^")
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for Ref<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for Ref<As>
 where
-    As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+    As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>> {
-        parser.parse_reference_as_with::<T, As>(args).context("^")
+    ) -> Result<T, CellParserError<'de, C>> {
+        parser.parse_reference_as_with::<T, As, C>(args).context("^")
     }
 }
 

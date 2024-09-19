@@ -706,7 +706,7 @@ mod tests {
         let cell = given_cell_from_example();
 
         let hm: HashmapE<u16> = cell
-            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>, NoArgs<_>>>((8, (), ()))
+            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>, NoArgs<_>>, _>((8, (), ()))
             .unwrap();
 
         assert_eq!(hm.len(), 3);
@@ -730,7 +730,7 @@ mod tests {
         let cell = given_cell_from_example();
 
         let hm: HashMap<Key, u16> = cell
-            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>>>((8, ()))
+            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>>, _>((8, ()))
             .unwrap();
 
         assert_eq!(hm.len(), 3);
@@ -747,7 +747,7 @@ mod tests {
         let cell = given_cell_from_example();
 
         let hm: BTreeMap<Key, u16> = cell
-            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>>>((8, ()))
+            .parse_fully_as_with::<_, HashmapE<Data<NoArgs<_>>>, _>((8, ()))
             .unwrap();
 
         assert_eq!(hm.len(), 3);

@@ -1,4 +1,5 @@
 use crate::cell::higher_hash::HigherHash;
+use crate::de::{CellParser, OrdinaryCellParser};
 use crate::level_mask::LevelMask;
 use crate::Cell;
 use bitvec::order::Msb0;
@@ -11,6 +12,14 @@ use std::sync::Arc;
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
+}
+
+impl OrdinaryCell {
+    #[inline]
+    #[must_use]
+    pub fn parser(&self) -> CellParser<'_, Self> {
+        CellParser::<OrdinaryCell>::new(self.level(), self.data.as_bitslice(), &self.references)
+    }
 }
 
 impl HigherHash for OrdinaryCell {

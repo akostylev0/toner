@@ -130,6 +130,7 @@ mod tests {
     use super::BinTree;
     use tlb::bits::bitvec::bits;
     use tlb::bits::bitvec::order::Msb0;
+    use tlb::OrdinaryCell;
     use tlb::r#as::{Data, NoArgs, Ref, Same};
     use tlb::ser::r#as::CellSerializeWrapAsExt;
     use tlb::ser::CellSerializeExt;
@@ -142,7 +143,7 @@ mod tests {
             .unwrap();
 
         let got: BinTree<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got.into_leaf(), Some(5));
@@ -159,7 +160,7 @@ mod tests {
             .unwrap();
 
         let [left, right] = data
-            .parse_fully_as_with::<BinTree<u8>, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<BinTree<u8>, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap()
             .into_fork()
             .unwrap();
@@ -176,7 +177,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![5]);
@@ -193,7 +194,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![5, 3]);
@@ -252,7 +253,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = root
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![0, 1, 2, 3, 4, 5, 6, 7]);
