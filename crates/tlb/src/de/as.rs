@@ -1,17 +1,17 @@
 use core::mem::MaybeUninit;
 use std::{rc::Rc, sync::Arc};
 
-use crate::{either::Either, r#as::AsWrap, ResultExt};
+use crate::{either::Either, r#as::AsWrap, OrdinaryCell, ResultExt};
 
-use super::{CellDeserialize, OrdinaryCellParser, OrdinaryCellParserError};
+use super::{CellDeserialize, CellParser, CellParserError, OrdinaryCellParser, OrdinaryCellParserError};
 
 /// Adapter to **de**serialize `T`.  
 /// See [`as`](crate::as) module-level documentation for more.
 ///
 /// For dynamic arguments, see
 /// [`CellDeserializeAsWithArgs`](super::args::as::CellDeserializeAsWithArgs).
-pub trait CellDeserializeAs<'de, T> {
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>>;
+pub trait CellDeserializeAs<'de, T, C = OrdinaryCell> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>>;
 }
 
 /// Owned version of [`CellDeserializeAs`]

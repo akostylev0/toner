@@ -74,32 +74,32 @@ impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7);
 impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7,8:T8);
 impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7,8:T8,9:T9);
 
-impl<'de, T> CellDeserialize<'de> for Box<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Box<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }
 
-impl<'de, T> CellDeserialize<'de> for Rc<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Rc<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }
 
-impl<'de, T> CellDeserialize<'de> for Arc<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Arc<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }

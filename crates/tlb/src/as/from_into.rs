@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub use crate::bits::r#as::{FromInto, FromIntoRef, TryFromInto, TryFromIntoRef};
+use crate::de::{CellParser, CellParserError};
 
 impl<T, As> CellSerializeAs<T> for FromInto<As>
 where
@@ -44,12 +45,12 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for FromInto<As>
+impl<'de, C, T, As> CellDeserializeAs<'de, T, C> for FromInto<As>
 where
-    As: Into<T> + CellDeserialize<'de>,
+    As: Into<T> + CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse(parser).map(Into::into)
     }
 }

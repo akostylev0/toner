@@ -28,6 +28,18 @@ pub struct CellParser<'de, T> {
     pub(crate) references: &'de [Arc<Cell>],
 }
 
+impl<'de, C> CellParser<'de, C> {
+    /// Parse the value using an adapter.
+    /// See [`as`](crate::as) module-level documentation for more.
+    #[inline]
+    pub fn parse_as<T, As>(&mut self) -> Result<T, CellParserError<'de, C>>
+    where
+        As: CellDeserializeAs<'de, T, C> + ?Sized,
+    {
+        As::parse_as(self)
+    }
+}
+
 pub type OrdinaryCellParser<'de> = CellParser<'de, OrdinaryCell>;
 
 impl<'de> OrdinaryCellParser<'de> {
@@ -90,16 +102,6 @@ impl<'de> OrdinaryCellParser<'de> {
         iter::repeat_with(move || self.parse_with(args.clone()))
             .enumerate()
             .map(|(i, v)| v.with_context(|| format!("[{i}]")))
-    }
-
-    /// Parse the value using an adapter.  
-    /// See [`as`](crate::as) module-level documentation for more.
-    #[inline]
-    pub fn parse_as<T, As>(&mut self) -> Result<T, OrdinaryCellParserError<'de>>
-    where
-        As: CellDeserializeAs<'de, T> + ?Sized,
-    {
-        As::parse_as(self)
     }
 
     /// Returns iterator that parses values using an adapter.  
