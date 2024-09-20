@@ -127,7 +127,7 @@
 //! #     payload: None,
 //! # };
 //! # let cell = orig.to_cell()?;
-//! let mut parser = cell.parser();
+//! let mut parser = cell.parser()?;
 //! let hello: Hello = parser.parse()?;
 //! # assert_eq!(hello, orig);
 //! # Ok(())

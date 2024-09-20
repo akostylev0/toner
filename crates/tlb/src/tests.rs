@@ -7,6 +7,7 @@ use crate::{
         CellSerializeExt,
     },
 };
+use crate::cell::CellBehavior;
 
 #[track_caller]
 pub fn assert_store_parse_as_eq<T, As>(value: T)
@@ -19,7 +20,9 @@ where
             .wrap_as::<As>()
             .to_cell()
             .unwrap()
-            .parse_fully_as::<T, As, _>()
+            .as_ordinary()
+            .unwrap()
+            .parse_fully_as::<T, As>()
             .unwrap(),
         value
     )

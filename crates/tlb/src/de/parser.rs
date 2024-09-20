@@ -4,10 +4,14 @@ use std::sync::Arc;
 
 use tlbits::ResultExt;
 
-use crate::{bits::{
-    bitvec::{order::Msb0, slice::BitSlice},
-    de::BitReader,
-}, Cell, Error, OrdinaryCell};
+use crate::cell::CellBehavior;
+use crate::{
+    bits::{
+        bitvec::{order::Msb0, slice::BitSlice},
+        de::BitReader,
+    },
+    Cell, Error, OrdinaryCell,
+};
 
 use super::{
     args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
@@ -137,22 +141,34 @@ impl<'de, C> CellParser<'de, C> {
     }
 
     #[inline]
-    pub(crate) fn parse_reference_as<T, As, X>(&mut self) -> Result<T, CellParserError<'de, X>>
+    pub(crate) fn parse_reference_as<'a, T, As, I>(&mut self) -> Result<T, CellParserError<'de, I>>
     where
-        As: CellDeserializeAs<'de, T, X> + ?Sized,
+        As: CellDeserializeAs<'de, T, I> + ?Sized,
+        &'de Cell: TryInto<&'de I>,
+        I: CellBehavior + 'de,
     {
-        self.pop_reference()?.parse_fully_as::<T, As, X>()
+        self.pop_reference()?
+            .as_ref()
+            .try_into()
+            .map_err(|_| CellParserError::<I>::custom("wrong cell type"))?
+            .parse_fully_as::<T, As>()
     }
 
     #[inline]
-    pub(crate) fn parse_reference_as_with<T, As, X>(
+    pub(crate) fn parse_reference_as_with<T, As, I>(
         &mut self,
         args: As::Args,
-    ) -> Result<T, CellParserError<'de, X>>
+    ) -> Result<T, CellParserError<'de, I>>
     where
-        As: CellDeserializeAsWithArgs<'de, T, X> + ?Sized,
+        As: CellDeserializeAsWithArgs<'de, T, I> + ?Sized,
+        &'de Cell: TryInto<&'de I>,
+        I: CellBehavior + 'de,
     {
-        self.pop_reference()?.parse_fully_as_with::<T, As, X>(args)
+        self.pop_reference()?
+            .as_ref()
+            .try_into()
+            .map_err(|_| CellParserError::<I>::custom("wrong cell type"))?
+            .parse_fully_as_with::<T, As>(args)
     }
 
     #[inline]

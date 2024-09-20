@@ -1,4 +1,6 @@
 use crate::cell::higher_hash::HigherHash;
+use crate::cell::CellBehavior;
+use crate::de::CellParser;
 use crate::level_mask::LevelMask;
 use bitvec::order::Msb0;
 use bitvec::vec::BitVec;
@@ -6,6 +8,14 @@ use bitvec::vec::BitVec;
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct LibraryReferenceCell {
     pub data: BitVec<u8, Msb0>,
+}
+
+impl CellBehavior for LibraryReferenceCell {
+    #[inline]
+    #[must_use]
+    fn parser(&self) -> CellParser<'_, Self> {
+        CellParser::new(self.level(), self.data.as_bitslice(), &[])
+    }
 }
 
 impl LibraryReferenceCell {

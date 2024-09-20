@@ -130,7 +130,6 @@ mod tests {
     use super::BinTree;
     use tlb::bits::bitvec::bits;
     use tlb::bits::bitvec::order::Msb0;
-    use tlb::OrdinaryCell;
     use tlb::r#as::{Data, NoArgs, Ref, Same};
     use tlb::ser::r#as::CellSerializeWrapAsExt;
     use tlb::ser::CellSerializeExt;

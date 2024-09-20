@@ -2,7 +2,7 @@ use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
         r#as::CellDeserializeAs,
-        CellDeserialize, OrdinaryCellParser, OrdinaryCellParserError,
+        CellDeserialize,
     },
     ser::{
         args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -50,17 +50,17 @@ where
     }
 }
 
-impl<'de, T> CellDeserializeAsWithArgs<'de, T> for Same
+impl<'de, T, C> CellDeserializeAsWithArgs<'de, T, C> for Same
 where
-    T: CellDeserializeWithArgs<'de>,
+    T: CellDeserializeWithArgs<'de, C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         T::parse_with(parser, args)
     }
 }

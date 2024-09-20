@@ -2,17 +2,16 @@ use core::marker::PhantomData;
 
 use tlbits::{either::Either, r#as::args::NoArgs, ser::BitWriter};
 
+use super::Same;
+use crate::cell::CellBehavior;
+use crate::de::{CellParser, CellParserError};
 use crate::{
-    de::{
-        args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, OrdinaryCellParser, OrdinaryCellParserError,
-    },
+    de::{args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs},
     ser::{
         args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
     },
     Cell, ResultExt,
 };
-use crate::de::{CellParser, CellParserError};
-use super::Same;
 
 /// Adapter to **de**/**ser**ialize value from/into reference to the child cell.
 pub struct Ref<As: ?Sized = Same>(PhantomData<As>);
@@ -49,6 +48,8 @@ where
 impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for Ref<As>
 where
     As: CellDeserializeAs<'de, T, C> + ?Sized,
+    C: CellBehavior + 'de,
+    &'de Cell: TryInto<&'de C>,
 {
     #[inline]
     fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
@@ -59,6 +60,8 @@ where
 impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for Ref<As>
 where
     As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
+    &'de Cell: TryInto<&'de C>,
+    C: CellBehavior + 'de
 {
     type Args = As::Args;
 
@@ -67,7 +70,9 @@ where
         parser: &mut CellParser<'de, C>,
         args: Self::Args,
     ) -> Result<T, CellParserError<'de, C>> {
-        parser.parse_reference_as_with::<T, As, C>(args).context("^")
+        parser
+            .parse_reference_as_with::<T, As, C>(args)
+            .context("^")
     }
 }
 
@@ -101,38 +106,40 @@ where
         let mut b = Cell::builder();
         As::store_as_with(source, &mut b, args)?;
         let cell = b.into_cell();
-        builder.store_as::<_, Either<Same, Ref>>(
-            if cell.len() <= builder.capacity_left() {
-                Either::Left
-            } else {
-                Either::Right
-            }(cell),
-        )?;
+        builder.store_as::<_, Either<Same, Ref>>(if cell.len() <= builder.capacity_left() {
+            Either::Left
+        } else {
+            Either::Right
+        }(cell))?;
         Ok(())
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for EitherInlineOrRef<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for EitherInlineOrRef<As>
 where
-    As: CellDeserializeAs<'de, T>,
+    As: CellDeserializeAs<'de, T, C>,
+    C: CellBehavior + 'de,
+    &'de Cell: TryInto<&'de C>,
 {
     #[inline]
-    fn parse_as(parser: &mut OrdinaryCellParser<'de>) -> Result<T, OrdinaryCellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         EitherInlineOrRef::<NoArgs<(), As>>::parse_as_with(parser, ())
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for EitherInlineOrRef<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for EitherInlineOrRef<As>
 where
-    As: CellDeserializeAsWithArgs<'de, T>,
+    As: CellDeserializeAsWithArgs<'de, T, C>,
+    C: CellBehavior + 'de,
+    &'de Cell: TryInto<&'de C>
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, OrdinaryCellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         Either::<As, Ref<As>>::parse_as_with(parser, args).map(Either::into_inner)
     }
 }

@@ -1,18 +1,30 @@
-use crate::cell_type::CellType;
-use crate::higher_hash::HigherHash;
-use crate::level_mask::LevelMask;
-use crate::Cell;
-use bitvec::order::Msb0;
-use bitvec::prelude::BitVec;
-use sha2::{Digest, Sha256};
 use std::cmp::max;
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
+
+use bitvec::order::Msb0;
+use bitvec::prelude::BitVec;
+use sha2::{Digest, Sha256};
+
+use crate::cell::CellBehavior;
+use crate::cell_type::CellType;
+use crate::de::CellParser;
+use crate::higher_hash::HigherHash;
+use crate::level_mask::LevelMask;
+use crate::Cell;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct MerkleUpdateCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
+}
+
+impl CellBehavior for MerkleUpdateCell {
+    #[inline]
+    #[must_use]
+    fn parser(&self) -> CellParser<'_, Self> {
+        CellParser::new(self.level(), self.data.as_bitslice(), &self.references)
+    }
 }
 
 impl HigherHash for MerkleUpdateCell {

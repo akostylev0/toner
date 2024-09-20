@@ -1,25 +1,20 @@
-use crate::cell::higher_hash::HigherHash;
-use crate::de::{CellParser, OrdinaryCellParser};
-use crate::level_mask::LevelMask;
-use crate::Cell;
+use std::ops::{BitOr, Deref};
+use std::sync::Arc;
+
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
-use std::ops::{BitOr, Deref};
-use std::sync::Arc;
+
+use crate::cell::higher_hash::HigherHash;
+use crate::cell::CellBehavior;
+use crate::de::CellParser;
+use crate::level_mask::LevelMask;
+use crate::Cell;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
-}
-
-impl OrdinaryCell {
-    #[inline]
-    #[must_use]
-    pub fn parser(&self) -> CellParser<'_, Self> {
-        CellParser::<OrdinaryCell>::new(self.level(), self.data.as_bitslice(), &self.references)
-    }
 }
 
 impl HigherHash for OrdinaryCell {
@@ -83,6 +78,14 @@ impl HigherHash for OrdinaryCell {
             .max()
             .map(|v| v + 1)
             .unwrap_or(0)
+    }
+}
+
+impl CellBehavior for OrdinaryCell {
+    #[inline]
+    #[must_use]
+    fn parser(&self) -> CellParser<'_, Self> {
+        CellParser::new(self.level(), self.data.as_bitslice(), &self.references)
     }
 }
 

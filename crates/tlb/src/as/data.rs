@@ -55,7 +55,7 @@ use crate::{
 /// // store as binary data
 /// builder.store_as::<_, Data>(v)?;
 /// # let cell = builder.into_cell();
-/// # let mut parser = cell.parser::<OrdinaryCell>();
+/// # let mut parser = cell.parser::<OrdinaryCell>()?;
 /// # let got =
 /// // parse as binary data
 /// parser.parse_as::<BinaryData, Data>()?;

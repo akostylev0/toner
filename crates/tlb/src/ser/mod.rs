@@ -141,4 +141,5 @@ pub trait CellSerializeExt: CellSerialize {
         Ok(builder.into_cell())
     }
 }
+
 impl<T> CellSerializeExt for T where T: CellSerialize {}

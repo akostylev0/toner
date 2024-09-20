@@ -2,11 +2,16 @@ pub mod r#as;
 
 use std::{mem::MaybeUninit, rc::Rc, sync::Arc};
 
-use crate::{bits::de::BitReaderExt, either::Either, r#as::{FromInto, Same}, OrdinaryCell, ResultExt};
+use crate::{
+    bits::de::BitReaderExt,
+    either::Either,
+    r#as::{FromInto, Same},
+    OrdinaryCell, ResultExt,
+};
 
-use super::{CellParser, CellParserError, OrdinaryCellParser, OrdinaryCellParserError};
+use super::{CellParser, CellParserError};
 
-/// A type that can be **de**serialized.  
+/// A type that can be **de**serialized.
 /// In contrast with [`CellDeserialize`](super::CellDeserialize) it allows to
 /// pass [`Args`](CellDeserializeWithArgs::Args) and these arguments can be
 /// calculated dynamically in runtime.
@@ -104,32 +109,32 @@ where
     }
 }
 
-impl<'de, T> CellDeserializeWithArgs<'de> for Rc<T>
+impl<'de, T, C> CellDeserializeWithArgs<'de, C> for Rc<T>
 where
-    T: CellDeserializeWithArgs<'de>,
+    T: CellDeserializeWithArgs<'de, C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn parse_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<Self, OrdinaryCellParserError<'de>> {
+    ) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as_with::<_, FromInto<T>>(args)
     }
 }
 
-impl<'de, T> CellDeserializeWithArgs<'de> for Arc<T>
+impl<'de, T, C> CellDeserializeWithArgs<'de, C> for Arc<T>
 where
-    T: CellDeserializeWithArgs<'de>,
+    T: CellDeserializeWithArgs<'de, C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn parse_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<Self, OrdinaryCellParserError<'de>> {
+    ) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as_with::<_, FromInto<T>>(args)
     }
 }
@@ -139,18 +144,18 @@ where
 /// left$0 {X:Type} {Y:Type} value:X = Either X Y;
 /// right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 /// ```
-impl<'de, Left, Right> CellDeserializeWithArgs<'de> for Either<Left, Right>
+impl<'de, Left, Right, C> CellDeserializeWithArgs<'de, C> for Either<Left, Right>
 where
-    Left: CellDeserializeWithArgs<'de>,
-    Right: CellDeserializeWithArgs<'de, Args = Left::Args>,
+    Left: CellDeserializeWithArgs<'de, C>,
+    Right: CellDeserializeWithArgs<'de, C, Args = Left::Args>,
 {
     type Args = Left::Args;
 
     #[inline]
     fn parse_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<Self, OrdinaryCellParserError<'de>> {
+    ) -> Result<Self, CellParserError<'de, C>> {
         match parser.unpack().context("tag")? {
             false => parser.parse_with(args).map(Either::Left).context("left"),
             true => parser.parse_with(args).map(Either::Right).context("right"),
@@ -163,17 +168,17 @@ where
 /// nothing$0 {X:Type} = Maybe X;
 /// just$1 {X:Type} value:X = Maybe X;
 /// ```
-impl<'de, T> CellDeserializeWithArgs<'de> for Option<T>
+impl<'de, T, C> CellDeserializeWithArgs<'de, C> for Option<T>
 where
-    T: CellDeserializeWithArgs<'de>,
+    T: CellDeserializeWithArgs<'de, C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn parse_with(
-        parser: &mut OrdinaryCellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<Self, OrdinaryCellParserError<'de>> {
+    ) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as_with::<_, Either<(), Same>>(args)
     }
 }

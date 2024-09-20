@@ -1,10 +1,3 @@
-pub mod higher_hash;
-mod library_reference_cell;
-mod merkle_proof_cell;
-mod merkle_update_cell;
-mod ordinary_cell;
-mod pruned_branch_cell;
-
 use core::{
     fmt::{self, Debug},
     hash::Hash,
@@ -15,6 +8,8 @@ use bitvec::order::Msb0;
 use bitvec::slice::BitSlice;
 use bitvec::vec::BitVec;
 
+use tlbits::Error;
+
 use crate::cell::higher_hash::HigherHash;
 pub use crate::cell::library_reference_cell::LibraryReferenceCell;
 pub use crate::cell::merkle_proof_cell::MerkleProofCell;
@@ -22,16 +17,23 @@ pub use crate::cell::merkle_update_cell::MerkleUpdateCell;
 pub use crate::cell::ordinary_cell::OrdinaryCell;
 pub use crate::cell::pruned_branch_cell::*;
 use crate::cell_type::CellType;
+use crate::de::{CellParser, CellParserError};
 use crate::level_mask::LevelMask;
 use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
         r#as::CellDeserializeAs,
-        CellDeserialize, OrdinaryCellParser, OrdinaryCellParserError,
+        CellDeserialize,
     },
     ser::CellBuilder,
 };
-use crate::de::{CellParser, CellParserError};
+
+pub mod higher_hash;
+mod library_reference_cell;
+mod merkle_proof_cell;
+mod merkle_update_cell;
+mod ordinary_cell;
+mod pruned_branch_cell;
 
 /// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -41,6 +43,64 @@ pub enum Cell {
     PrunedBranch(PrunedBranchCell),
     MerkleProof(MerkleProofCell),
     MerkleUpdate(MerkleUpdateCell),
+}
+
+pub trait CellBehavior
+where
+    Self: Sized,
+{
+    fn parser(&self) -> CellParser<'_, Self>;
+
+    /// Shortcut for [`.parser()`](Cell::parser)[`.parse()`](OrdinaryCellParser::parse)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
+    #[inline]
+    fn parse_fully<'de, T>(&'de self) -> Result<T, CellParserError<'de, Self>>
+    where
+        T: CellDeserialize<'de, Self>,
+    {
+        let mut parser = self.parser();
+        let v = parser.parse()?;
+        parser.ensure_empty()?;
+        Ok(v)
+    }
+
+    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_with()`](OrdinaryCellParser::parse_with)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
+    #[inline]
+    fn parse_fully_with<'de, T>(&'de self, args: T::Args) -> Result<T, CellParserError<'de, Self>>
+    where
+        T: CellDeserializeWithArgs<'de, Self>,
+    {
+        let mut parser = self.parser();
+        let v = parser.parse_with(args)?;
+        parser.ensure_empty()?;
+        Ok(v)
+    }
+
+    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as()`](OrdinaryCellParser::parse_as)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
+    #[inline]
+    fn parse_fully_as<'de, T, As>(&'de self) -> Result<T, CellParserError<'de, Self>>
+    where
+        As: CellDeserializeAs<'de, T, Self> + ?Sized,
+    {
+        let mut parser = self.parser();
+        let v = parser.parse_as::<T, As>()?;
+        parser.ensure_empty()?;
+        Ok(v)
+    }
+
+    /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as_with()`](OrdinaryCellParser::parse_as_with)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
+    #[inline]
+    fn parse_fully_as_with<'de, T, As>(
+        &'de self,
+        args: As::Args,
+    ) -> Result<T, CellParserError<'de, Self>>
+    where
+        As: CellDeserializeAsWithArgs<'de, T, Self> + ?Sized,
+    {
+        let mut parser = self.parser();
+        let v = parser.parse_as_with::<T, As>(args)?;
+        parser.ensure_empty()?;
+        Ok(v)
+    }
 }
 
 impl Default for Cell {
@@ -212,39 +272,45 @@ impl Cell {
         self.higher_hash(0)
     }
 
-    /// Return [`OrdinaryCellParser`] for this cell
     #[inline]
-    #[must_use]
-    pub fn parser<C>(&self) -> CellParser<'_, C> {
-        CellParser::new(
-            self.level(),
-            self.as_bitslice(),
-            self.references(),
-        )
+    pub fn parser<'a, C>(&'a self) -> Result<CellParser<'a, C>, CellParserError<'a, Self>>
+    where
+        &'a Cell: TryInto<&'a C>,
+        C: CellBehavior + 'a,
+    {
+        Ok(self
+            .try_into()
+            .map_err(|_| CellParserError::<C>::custom("wrong cell type"))?
+            .parser())
     }
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse()`](OrdinaryCellParser::parse)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
     #[inline]
-    pub fn parse_fully<'de, T>(&'de self) -> Result<T, OrdinaryCellParserError<'de>>
+    pub fn parse_fully<'de, T, C>(&'de self) -> Result<T, CellParserError<'de, Self>>
     where
-        T: CellDeserialize<'de>,
+        T: CellDeserialize<'de, C>,
+        &'de Cell: TryInto<&'de C>,
+        C: CellBehavior + 'de,
     {
-        let mut parser = self.parser();
-        let v = parser.parse()?;
-        parser.ensure_empty()?;
-        Ok(v)
+        self.try_into()
+            .map_err(|_| CellParserError::<C>::custom("wrong cell type"))?
+            .parse_fully::<T>()
     }
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse_with()`](OrdinaryCellParser::parse_with)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
     #[inline]
-    pub fn parse_fully_with<'de, T>(&'de self, args: T::Args) -> Result<T, OrdinaryCellParserError<'de>>
+    pub fn parse_fully_with<'de, T, C>(
+        &'de self,
+        args: T::Args,
+    ) -> Result<T, CellParserError<'de, Self>>
     where
-        T: CellDeserializeWithArgs<'de>,
+        T: CellDeserializeWithArgs<'de, C>,
+        &'de Cell: TryInto<&'de C>,
+        C: CellBehavior + 'de,
     {
-        let mut parser = self.parser();
-        let v = parser.parse_with(args)?;
-        parser.ensure_empty()?;
-        Ok(v)
+        self.try_into()
+            .map_err(|_| CellParserError::<C>::custom("wrong cell type"))?
+            .parse_fully_with::<T>(args)
     }
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as()`](OrdinaryCellParser::parse_as)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
@@ -252,11 +318,12 @@ impl Cell {
     pub fn parse_fully_as<'de, T, As, C>(&'de self) -> Result<T, CellParserError<'de, C>>
     where
         As: CellDeserializeAs<'de, T, C> + ?Sized,
+        &'de Cell: TryInto<&'de C>,
+        C: CellBehavior + 'de,
     {
-        let mut parser = self.parser();
-        let v = parser.parse_as::<T, As>()?;
-        parser.ensure_empty()?;
-        Ok(v)
+        self.try_into()
+            .map_err(|_| CellParserError::<C>::custom("wrong cell type"))?
+            .parse_fully_as::<T, As>()
     }
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse_as_with()`](OrdinaryCellParser::parse_as_with)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
@@ -267,11 +334,12 @@ impl Cell {
     ) -> Result<T, CellParserError<'de, C>>
     where
         As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
+        &'de Cell: TryInto<&'de C>,
+        C: CellBehavior + 'de,
     {
-        let mut parser = self.parser();
-        let v = parser.parse_as_with::<T, As>(args)?;
-        parser.ensure_empty()?;
-        Ok(v)
+        self.try_into()
+            .map_err(|_| CellParserError::<C>::custom("wrong cell type"))?
+            .parse_fully_as_with::<T, As>(args)
     }
 }
 
@@ -376,5 +444,125 @@ mod tests {
             cell.hash(),
             hex!("f345277cc6cfa747f001367e1e873dcfa8a936b8492431248b7a3eeafa8030e7")
         );
+    }
+}
+
+impl TryInto<LibraryReferenceCell> for Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<LibraryReferenceCell, Self::Error> {
+        if let Cell::LibraryReference(inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<MerkleProofCell> for Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<MerkleProofCell, Self::Error> {
+        if let Cell::MerkleProof(inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<MerkleUpdateCell> for Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<MerkleUpdateCell, Self::Error> {
+        if let Cell::MerkleUpdate(inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<OrdinaryCell> for Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<OrdinaryCell, Self::Error> {
+        if let Cell::Ordinary(inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<PrunedBranchCell> for Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<PrunedBranchCell, Self::Error> {
+        if let Cell::PrunedBranch(inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryInto<&'a LibraryReferenceCell> for &'a Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'a LibraryReferenceCell, Self::Error> {
+        if let Cell::LibraryReference(ref inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryInto<&'a MerkleProofCell> for &'a Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'a MerkleProofCell, Self::Error> {
+        if let Cell::MerkleProof(ref inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryInto<&'a MerkleUpdateCell> for &'a Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'a MerkleUpdateCell, Self::Error> {
+        if let Cell::MerkleUpdate(ref inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryInto<&'a OrdinaryCell> for &'a Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'a OrdinaryCell, Self::Error> {
+        if let Cell::Ordinary(ref inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> TryInto<&'a PrunedBranchCell> for &'a Cell {
+    type Error = ();
+
+    fn try_into(self) -> Result<&'a PrunedBranchCell, Self::Error> {
+        if let Cell::PrunedBranch(ref inner) = self {
+            Ok(inner)
+        } else {
+            Err(())
+        }
     }
 }

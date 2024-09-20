@@ -1,13 +1,24 @@
-use crate::cell::higher_hash::HigherHash;
-use crate::cell_type::CellType;
-use crate::level_mask::LevelMask;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
 
+use crate::cell::higher_hash::HigherHash;
+use crate::cell::CellBehavior;
+use crate::cell_type::CellType;
+use crate::de::CellParser;
+use crate::level_mask::LevelMask;
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PrunedBranchCell {
     pub data: BitVec<u8, Msb0>,
+}
+
+impl CellBehavior for PrunedBranchCell {
+    #[inline]
+    #[must_use]
+    fn parser(&self) -> CellParser<'_, Self> {
+        CellParser::new(self.level(), self.data.as_bitslice(), &[])
+    }
 }
 
 impl HigherHash for PrunedBranchCell {
