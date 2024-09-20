@@ -1,9 +1,11 @@
 use crate::cell::higher_hash::HigherHash;
 use crate::cell::CellBehavior;
-use crate::de::CellParser;
+use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::level_mask::LevelMask;
+use crate::Cell;
 use bitvec::order::Msb0;
 use bitvec::vec::BitVec;
+use std::mem;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct LibraryReferenceCell {
@@ -15,6 +17,22 @@ impl CellBehavior for LibraryReferenceCell {
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {
         CellParser::new(self.level(), self.data.as_bitslice(), &[])
+    }
+}
+
+impl<'de> CellDeserialize<'de, Self> for LibraryReferenceCell {
+    fn parse(
+        parser: &mut CellParser<'de, LibraryReferenceCell>,
+    ) -> Result<Self, CellParserError<'de, LibraryReferenceCell>> {
+        Ok(LibraryReferenceCell {
+            data: mem::take(&mut parser.data).to_bitvec(),
+        })
+    }
+}
+
+impl From<LibraryReferenceCell> for Cell {
+    fn from(value: LibraryReferenceCell) -> Self {
+        Self::LibraryReference(value)
     }
 }
 

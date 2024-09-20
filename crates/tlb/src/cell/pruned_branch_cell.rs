@@ -1,11 +1,13 @@
+use crate::Cell;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
+use std::mem;
 
 use crate::cell::higher_hash::HigherHash;
 use crate::cell::CellBehavior;
 use crate::cell_type::CellType;
-use crate::de::CellParser;
+use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::level_mask::LevelMask;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -18,6 +20,22 @@ impl CellBehavior for PrunedBranchCell {
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {
         CellParser::new(self.level(), self.data.as_bitslice(), &[])
+    }
+}
+
+impl<'de> CellDeserialize<'de, Self> for PrunedBranchCell {
+    fn parse(
+        parser: &mut CellParser<'de, PrunedBranchCell>,
+    ) -> Result<Self, CellParserError<'de, PrunedBranchCell>> {
+        Ok(PrunedBranchCell {
+            data: mem::take(&mut parser.data).to_bitvec(),
+        })
+    }
+}
+
+impl From<PrunedBranchCell> for Cell {
+    fn from(value: PrunedBranchCell) -> Self {
+        Self::PrunedBranch(value)
     }
 }
 

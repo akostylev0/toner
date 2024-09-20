@@ -6,13 +6,13 @@ mod parser;
 pub use self::parser::*;
 
 use core::mem::MaybeUninit;
-use std::{mem, rc::Rc, sync::Arc};
+use std::{rc::Rc, sync::Arc};
 
 use crate::{
     bits::de::BitReaderExt,
     either::Either,
     r#as::{FromInto, Same},
-    Cell, OrdinaryCell, ResultExt,
+    Cell, CellBehavior, OrdinaryCell, ResultExt,
 };
 
 /// A type that can be **de**serialized from [`OrdinaryCellParser`].
@@ -138,16 +138,16 @@ where
     }
 }
 
-impl<'de> CellDeserialize<'de> for Cell {
+impl<'de, C> CellDeserialize<'de, C> for Cell
+where
+    C: CellBehavior + CellDeserialize<'de, C>,
+    Cell: From<C>,
+{
     #[inline]
-    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
-        let cell = Cell::Ordinary(OrdinaryCell {
-            data: mem::take(&mut parser.data).to_bitvec(),
-            references: mem::take(&mut parser.references).to_vec(),
-        });
-
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
+        let cell = C::parse(parser)?;
         parser.ensure_empty()?;
 
-        Ok(cell)
+        Ok(cell.into())
     }
 }

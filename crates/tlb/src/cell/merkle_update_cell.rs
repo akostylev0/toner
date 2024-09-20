@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::mem;
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
 
@@ -8,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 use crate::cell::CellBehavior;
 use crate::cell_type::CellType;
-use crate::de::CellParser;
+use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::higher_hash::HigherHash;
 use crate::level_mask::LevelMask;
 use crate::Cell;
@@ -24,6 +25,23 @@ impl CellBehavior for MerkleUpdateCell {
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {
         CellParser::new(self.level(), self.data.as_bitslice(), &self.references)
+    }
+}
+
+impl<'de> CellDeserialize<'de, Self> for MerkleUpdateCell {
+    fn parse(
+        parser: &mut CellParser<'de, MerkleUpdateCell>,
+    ) -> Result<Self, CellParserError<'de, MerkleUpdateCell>> {
+        Ok(MerkleUpdateCell {
+            data: mem::take(&mut parser.data).to_bitvec(),
+            references: mem::take(&mut parser.references).to_vec(),
+        })
+    }
+}
+
+impl From<MerkleUpdateCell> for Cell {
+    fn from(value: MerkleUpdateCell) -> Self {
+        Self::MerkleUpdate(value)
     }
 }
 

@@ -1,3 +1,4 @@
+use std::mem;
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
 
@@ -7,14 +8,31 @@ use sha2::{Digest, Sha256};
 
 use crate::cell::higher_hash::HigherHash;
 use crate::cell::CellBehavior;
-use crate::de::CellParser;
+use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::level_mask::LevelMask;
 use crate::Cell;
 
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub struct OrdinaryCell {
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<Arc<Cell>>,
+}
+
+impl<'de> CellDeserialize<'de, Self> for OrdinaryCell {
+    fn parse(
+        parser: &mut CellParser<'de, OrdinaryCell>,
+    ) -> Result<Self, CellParserError<'de, OrdinaryCell>> {
+        Ok(OrdinaryCell {
+            data: mem::take(&mut parser.data).to_bitvec(),
+            references: mem::take(&mut parser.references).to_vec(),
+        })
+    }
+}
+
+impl From<OrdinaryCell> for Cell {
+    fn from(value: OrdinaryCell) -> Self {
+        Self::Ordinary(value)
+    }
 }
 
 impl HigherHash for OrdinaryCell {

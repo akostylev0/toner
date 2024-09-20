@@ -361,6 +361,7 @@ impl<'de> CellDeserialize<'de> for InternalExtensionWalletV5R1MsgBody {
 #[cfg(test)]
 mod tests {
     use tlb::bits::{de::unpack_fully, ser::pack_with};
+    use tlb::OrdinaryCell;
     use tlb_ton::boc::{BagOfCellsArgs, BoC};
 
     use super::*;
@@ -378,7 +379,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: Cell = unpacked.single_root().unwrap().parse_fully::<_, OrdinaryCell>().unwrap();
         assert_eq!(&got, WALLET_V5R1_CODE_CELL.as_ref());
     }
 }
