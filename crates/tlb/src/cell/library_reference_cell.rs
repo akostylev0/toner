@@ -24,9 +24,12 @@ impl<'de> CellDeserialize<'de, Self> for LibraryReferenceCell {
     fn parse(
         parser: &mut CellParser<'de, LibraryReferenceCell>,
     ) -> Result<Self, CellParserError<'de, LibraryReferenceCell>> {
-        Ok(LibraryReferenceCell {
+        let cell = LibraryReferenceCell {
             data: mem::take(&mut parser.data).to_bitvec(),
-        })
+        };
+        parser.ensure_empty()?;
+
+        Ok(cell)
     }
 }
 

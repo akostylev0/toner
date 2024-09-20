@@ -22,10 +22,13 @@ impl<'de> CellDeserialize<'de, Self> for OrdinaryCell {
     fn parse(
         parser: &mut CellParser<'de, OrdinaryCell>,
     ) -> Result<Self, CellParserError<'de, OrdinaryCell>> {
-        Ok(OrdinaryCell {
+        let cell = OrdinaryCell {
             data: mem::take(&mut parser.data).to_bitvec(),
             references: mem::take(&mut parser.references).to_vec(),
-        })
+        };
+
+        parser.ensure_empty()?;
+        Ok(cell)
     }
 }
 

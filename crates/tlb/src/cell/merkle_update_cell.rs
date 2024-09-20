@@ -32,10 +32,13 @@ impl<'de> CellDeserialize<'de, Self> for MerkleUpdateCell {
     fn parse(
         parser: &mut CellParser<'de, MerkleUpdateCell>,
     ) -> Result<Self, CellParserError<'de, MerkleUpdateCell>> {
-        Ok(MerkleUpdateCell {
+        let cell = MerkleUpdateCell {
             data: mem::take(&mut parser.data).to_bitvec(),
             references: mem::take(&mut parser.references).to_vec(),
-        })
+        };
+
+        parser.ensure_empty()?;
+        Ok(cell)
     }
 }
 

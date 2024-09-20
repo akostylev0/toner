@@ -29,10 +29,13 @@ impl<'de> CellDeserialize<'de, Self> for MerkleProofCell {
     fn parse(
         parser: &mut CellParser<'de, MerkleProofCell>,
     ) -> Result<Self, CellParserError<'de, MerkleProofCell>> {
-        Ok(MerkleProofCell {
+        let cell = MerkleProofCell {
             data: mem::take(&mut parser.data).to_bitvec(),
             references: mem::take(&mut parser.references).to_vec(),
-        })
+        };
+
+        parser.ensure_empty()?;
+        Ok(cell)
     }
 }
 

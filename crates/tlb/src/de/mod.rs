@@ -146,7 +146,6 @@ where
     #[inline]
     fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         let cell = C::parse(parser)?;
-        parser.ensure_empty()?;
 
         Ok(cell.into())
     }

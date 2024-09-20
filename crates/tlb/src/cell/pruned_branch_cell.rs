@@ -27,9 +27,12 @@ impl<'de> CellDeserialize<'de, Self> for PrunedBranchCell {
     fn parse(
         parser: &mut CellParser<'de, PrunedBranchCell>,
     ) -> Result<Self, CellParserError<'de, PrunedBranchCell>> {
-        Ok(PrunedBranchCell {
+        let cell = PrunedBranchCell {
             data: mem::take(&mut parser.data).to_bitvec(),
-        })
+        };
+
+        parser.ensure_empty()?;
+        Ok(cell)
     }
 }
 
