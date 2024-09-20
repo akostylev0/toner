@@ -413,6 +413,7 @@ mod tests {
                 Ref<Data<NBits<24>>>,
                 Ref<(Data<NBits<7>>, Ref<Data<NBits<24>>>)>,
             ),
+            OrdinaryCell
         >((0b1, 0x0AAAAA, (0x7F, 0x0AAAAA)));
     }
 
