@@ -7,7 +7,7 @@ use nacl::sign::PUBLIC_KEY_LENGTH;
 use num_bigint::BigUint;
 use tlb::{
     bits::{de::BitReaderExt, ser::BitWriterExt},
-    de::{CellDeserialize, CellParser, CellParserError},
+    de::{CellDeserialize, OrdinaryCellParser, OrdinaryCellParserError},
     r#as::{NoArgs, Ref},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
     Cell, Error,
@@ -93,7 +93,7 @@ impl CellSerialize for WalletV4R2Data {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV4R2Data {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             seqno: parser.unpack()?,
             wallet_id: parser.unpack()?,
@@ -127,7 +127,7 @@ impl CellSerialize for WalletV4R2SignBody {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV4R2SignBody {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             wallet_id: parser.unpack()?,
             expire_at: parser.unpack_as::<_, UnixTimestamp>()?,
@@ -167,7 +167,7 @@ impl CellSerialize for WalletV4R2Op {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV4R2Op {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(match parser.unpack()? {
             Self::SEND_PREFIX => Self::Send(
                 iter::from_fn(|| {
@@ -216,7 +216,7 @@ where
     IC: CellDeserialize<'de>,
     ID: CellDeserialize<'de>,
 {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             plugin_workchain: parser.unpack()?,
             plugin_balance: parser.unpack_as::<_, Grams>()?,
@@ -245,7 +245,7 @@ impl CellSerialize for WalletV4R2OpPlugin {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV4R2OpPlugin {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             plugin_address: MsgAddress {
                 workchain_id: parser.unpack::<i8>()? as i32,
@@ -273,7 +273,7 @@ impl CellSerialize for WalletV4R2ExternalBody {
 
 impl<'de> CellDeserialize<'de> for WalletV4R2ExternalBody {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             signature: parser.unpack()?,
             body: parser.parse()?,
@@ -284,6 +284,7 @@ impl<'de> CellDeserialize<'de> for WalletV4R2ExternalBody {
 #[cfg(test)]
 mod tests {
     use tlb::bits::{de::unpack_fully, ser::pack_with};
+    use tlb::OrdinaryCell;
     use tlb_ton::boc::{BagOfCellsArgs, BoC};
 
     use super::*;
@@ -301,7 +302,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: Cell = unpacked.single_root().unwrap().parse_fully::<_, OrdinaryCell>().unwrap();
         assert_eq!(&got, WALLET_V4R2_CODE_CELL.as_ref());
     }
 }

@@ -18,7 +18,7 @@ use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
         r#as::CellDeserializeAs,
-        CellDeserialize, CellParser, CellParserError,
+        CellDeserialize,
     },
     ser::{
         args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -27,6 +27,7 @@ use crate::{
     },
 };
 
+use crate::de::{CellParser, CellParserError};
 pub use tlbits::r#as::AsWrap;
 
 impl<'a, T, As> CellSerialize for AsWrap<&'a T, As>
@@ -58,26 +59,26 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserialize<'de> for AsWrap<T, As>
+impl<'de, T, As, C> CellDeserialize<'de, C> for AsWrap<T, As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         As::parse_as(parser).map(Self::new)
     }
 }
 
-impl<'de, T, As> CellDeserializeWithArgs<'de> for AsWrap<T, As>
+impl<'de, T, As, C> CellDeserializeWithArgs<'de, C> for AsWrap<T, As>
 where
-    As: CellDeserializeAsWithArgs<'de, T> + ?Sized,
+    As: CellDeserializeAsWithArgs<'de, T, C> + ?Sized,
 {
     type Args = As::Args;
 
     fn parse_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<Self, CellParserError<'de>> {
+    ) -> Result<Self, CellParserError<'de, C>> {
         As::parse_as_with(parser, args).map(Self::new)
     }
 }

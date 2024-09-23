@@ -6,34 +6,38 @@ mod parser;
 pub use self::parser::*;
 
 use core::mem::MaybeUninit;
-use std::{mem, rc::Rc, sync::Arc};
+use std::{rc::Rc, sync::Arc};
 
-use crate::cell_type::CellType;
-use crate::{bits::de::BitReaderExt, either::Either, r#as::{FromInto, Same}, Cell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell, ResultExt};
+use crate::{
+    bits::de::BitReaderExt,
+    either::Either,
+    r#as::{FromInto, Same},
+    Cell, CellBehavior, OrdinaryCell, ResultExt,
+};
 
-/// A type that can be **de**serialized from [`CellParser`].
-pub trait CellDeserialize<'de>: Sized {
+/// A type that can be **de**serialized from [`OrdinaryCellParser`].
+pub trait CellDeserialize<'de, C = OrdinaryCell>: Sized {
     /// Parse value
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>>;
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>>;
 }
 
 /// Owned version of [`CellDeserialize`]
-pub trait CellDeserializeOwned: for<'de> CellDeserialize<'de> {}
-impl<T> CellDeserializeOwned for T where T: for<'de> CellDeserialize<'de> {}
+pub trait CellDeserializeOwned<C = OrdinaryCell>: for<'de> CellDeserialize<'de, C> {}
+impl<T, C> CellDeserializeOwned<C> for T where T: for<'de> CellDeserialize<'de, C> {}
 
-impl<'de> CellDeserialize<'de> for () {
+impl<'de, C> CellDeserialize<'de, C> for () {
     #[inline]
-    fn parse(_parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(_parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         Ok(())
     }
 }
 
-impl<'de, T, const N: usize> CellDeserialize<'de> for [T; N]
+impl<'de, C, T, const N: usize> CellDeserialize<'de, C> for [T; N]
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         let mut arr: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
         for a in &mut arr {
             a.write(T::parse(parser)?);
@@ -44,13 +48,13 @@ where
 
 macro_rules! impl_cell_deserialize_for_tuple {
     ($($n:tt:$t:ident),+) => {
-        impl<'de, $($t),+> CellDeserialize<'de> for ($($t,)+)
+        impl<'de, C, $($t),+> CellDeserialize<'de, C> for ($($t,)+)
         where $(
-            $t: CellDeserialize<'de>,
+            $t: CellDeserialize<'de, C>,
         )+
         {
             #[inline]
-            fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>>
+            fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>>
             {
                 Ok(($(
                     $t::parse(parser).context(concat!(".", stringify!($n)))?,
@@ -70,32 +74,32 @@ impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7);
 impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7,8:T8);
 impl_cell_deserialize_for_tuple!(0:T0,1:T1,2:T2,3:T3,4:T4,5:T5,6:T6,7:T7,8:T8,9:T9);
 
-impl<'de, T> CellDeserialize<'de> for Box<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Box<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }
 
-impl<'de, T> CellDeserialize<'de> for Rc<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Rc<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }
 
-impl<'de, T> CellDeserialize<'de> for Arc<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Arc<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, FromInto<T>>()
     }
 }
@@ -105,13 +109,13 @@ where
 /// left$0 {X:Type} {Y:Type} value:X = Either X Y;
 /// right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 /// ```
-impl<'de, Left, Right> CellDeserialize<'de> for Either<Left, Right>
+impl<'de, Left, Right, C> CellDeserialize<'de, C> for Either<Left, Right>
 where
-    Left: CellDeserialize<'de>,
-    Right: CellDeserialize<'de>,
+    Left: CellDeserialize<'de, C>,
+    Right: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         match parser.unpack().context("tag")? {
             false => parser.parse().map(Either::Left).context("left"),
             true => parser.parse().map(Either::Right).context("right"),
@@ -124,42 +128,25 @@ where
 /// nothing$0 {X:Type} = Maybe X;
 /// just$1 {X:Type} value:X = Maybe X;
 /// ```
-impl<'de, T> CellDeserialize<'de> for Option<T>
+impl<'de, T, C> CellDeserialize<'de, C> for Option<T>
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
         parser.parse_as::<_, Either<(), Same>>()
     }
 }
 
-impl<'de> CellDeserialize<'de> for Cell {
+impl<'de, C> CellDeserialize<'de, C> for Cell
+where
+    C: CellBehavior + CellDeserialize<'de, C>,
+    Cell: From<C>,
+{
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
-        let cell = match parser.r#type {
-            CellType::Ordinary => Cell::Ordinary(OrdinaryCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-                references: mem::take(&mut parser.references).to_vec(),
-            }),
-            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-            }),
-            CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-            }),
-            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-                references: mem::take(&mut parser.references).to_vec(),
-            }),
-            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-                references: mem::take(&mut parser.references).to_vec(),
-            })
-        };
+    fn parse(parser: &mut CellParser<'de, C>) -> Result<Self, CellParserError<'de, C>> {
+        let cell = C::parse(parser)?;
 
-        parser.ensure_empty()?;
-
-        Ok(cell)
+        Ok(cell.into())
     }
 }

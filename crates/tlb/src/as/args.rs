@@ -1,13 +1,12 @@
 use crate::{
-    de::{
-        args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
-    },
+    de::{args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs},
     ser::{
         args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
     },
 };
 
 pub use crate::bits::r#as::args::{DefaultArgs, NoArgs};
+use crate::de::{CellParser, CellParserError};
 
 impl<T, As, Args> CellSerializeAsWithArgs<T> for NoArgs<Args, As>
 where
@@ -25,17 +24,17 @@ where
     }
 }
 
-impl<'de, T, As, Args> CellDeserializeAsWithArgs<'de, T> for NoArgs<Args, As>
+impl<'de, T, As, Args, C> CellDeserializeAsWithArgs<'de, T, C> for NoArgs<Args, As>
 where
-    As: CellDeserializeAs<'de, T> + ?Sized,
+    As: CellDeserializeAs<'de, T, C> + ?Sized,
 {
     type Args = Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         _args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::parse_as(parser)
     }
 }
@@ -51,13 +50,13 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for DefaultArgs<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for DefaultArgs<As>
 where
-    As: CellDeserializeAsWithArgs<'de, T>,
+    As: CellDeserializeAsWithArgs<'de, T, C>,
     As::Args: Default,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse_as_with(parser, <As::Args>::default())
     }
 }

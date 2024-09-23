@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use nacl::sign::PUBLIC_KEY_LENGTH;
 use tlb::{
     bits::{de::BitReaderExt, ser::BitWriterExt},
-    de::{CellDeserialize, CellParser, CellParserError},
+    de::{CellDeserialize, OrdinaryCellParser, OrdinaryCellParserError},
     r#as::{Data, NoArgs},
     ser::{CellBuilder, CellBuilderError, CellSerialize},
     Cell, Error, ResultExt,
@@ -105,7 +105,7 @@ impl CellSerialize for WalletV5R1Data {
 
 impl<'de> CellDeserialize<'de> for WalletV5R1Data {
     #[inline]
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             is_signature_allowed: parser.unpack()?,
             seqno: parser.unpack()?,
@@ -141,7 +141,7 @@ impl CellSerialize for WalletV5R1InnerRequest {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV5R1InnerRequest {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             out_actions: parser
                 .parse_as::<_, Option<List>>()
@@ -200,7 +200,7 @@ impl CellSerialize for ExtendedAction {
 }
 
 impl<'de> CellDeserialize<'de> for ExtendedAction {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(match parser.unpack()? {
             Self::ADD_EXTENSION_PREFIX => Self::AddExtension(parser.unpack()?),
             Self::DELETE_EXTENSION_PREFIX => Self::DeleteExtension(parser.unpack()?),
@@ -241,7 +241,7 @@ impl CellSerialize for WalletV5RSignBody {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV5RSignBody {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             wallet_id: parser.unpack()?,
             valid_until: parser.unpack_as::<_, UnixTimestamp>()?,
@@ -274,7 +274,7 @@ impl CellSerialize for WalletV5R1SignedRequest {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV5R1SignedRequest {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             body: parser.parse()?,
             signature: parser.unpack()?,
@@ -320,7 +320,7 @@ impl CellSerialize for WalletV5R1MsgBody {
 }
 
 impl<'de> CellDeserialize<'de> for WalletV5R1MsgBody {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(match parser.unpack()? {
             Self::INTERNAL_SIGNED_PREFIX => {
                 Self::InternalSigned(parser.parse().context("internal_signed")?)
@@ -350,7 +350,7 @@ impl CellSerialize for InternalExtensionWalletV5R1MsgBody {
 }
 
 impl<'de> CellDeserialize<'de> for InternalExtensionWalletV5R1MsgBody {
-    fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
+    fn parse(parser: &mut OrdinaryCellParser<'de>) -> Result<Self, OrdinaryCellParserError<'de>> {
         Ok(Self {
             query_id: parser.unpack()?,
             inner: parser.parse()?,
@@ -361,6 +361,7 @@ impl<'de> CellDeserialize<'de> for InternalExtensionWalletV5R1MsgBody {
 #[cfg(test)]
 mod tests {
     use tlb::bits::{de::unpack_fully, ser::pack_with};
+    use tlb::OrdinaryCell;
     use tlb_ton::boc::{BagOfCellsArgs, BoC};
 
     use super::*;
@@ -378,7 +379,7 @@ mod tests {
 
         let unpacked: BoC = unpack_fully(packed).unwrap();
 
-        let got: Cell = unpacked.single_root().unwrap().parse_fully().unwrap();
+        let got: Cell = unpacked.single_root().unwrap().parse_fully::<_, OrdinaryCell>().unwrap();
         assert_eq!(&got, WALLET_V5R1_CODE_CELL.as_ref());
     }
 }

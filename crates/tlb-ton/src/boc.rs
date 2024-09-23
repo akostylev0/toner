@@ -35,6 +35,7 @@ pub type BoC = BagOfCells;
 /// # };
 /// # use tlb_ton::{boc::{BagOfCells, BagOfCellsArgs}, MsgAddress};
 /// # fn main() -> Result<(), StringError> {
+/// use tlb::OrdinaryCell;
 /// let addr = MsgAddress::NULL;
 /// let mut builder = Cell::builder();
 /// builder.pack(addr)?;
@@ -50,7 +51,7 @@ pub type BoC = BagOfCells;
 /// let got: MsgAddress = unpacked
 ///     .single_root()
 ///     .unwrap()
-///     .parse_fully_as::<_, Data>()?;
+///     .parse_fully_as::<_, Data, OrdinaryCell>()?;
 ///
 /// assert_eq!(got, addr);
 /// # Ok(())
