@@ -1,10 +1,15 @@
 use std::sync::Arc;
 
 use crate::cell_type::CellType;
-use crate::{bits::{
-    bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
-    ser::{BitWriter, LimitWriter},
-}, r#as::Ref, Cell, Error, ResultExt, OrdinaryCell, PrunedBranchCell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell};
+use crate::{
+    bits::{
+        bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
+        ser::{BitWriter, LimitWriter},
+    },
+    r#as::Ref,
+    Cell, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell,
+    PrunedBranchCell, ResultExt,
+};
 
 use super::{
     args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -22,7 +27,7 @@ pub type CellBuilderError = <CellBuilder as BitWriter>::Error;
 /// [`CellBuilder`] can then be converted to constructed [`Cell`] by using
 /// [`.into_cell()`](CellBuilder::into_cell).
 pub struct CellBuilder {
-    r#type: CellType,
+    r#type: Option<CellType>,
     data: CellBitWriter,
     references: Vec<Arc<Cell>>,
 }
@@ -35,17 +40,10 @@ impl CellBuilder {
     #[must_use]
     pub(crate) const fn new() -> Self {
         Self {
-            r#type: CellType::Ordinary,
+            r#type: None,
             data: LimitWriter::new(BitVec::EMPTY, MAX_BITS_LEN),
             references: Vec::new(),
         }
-    }
-
-    #[inline]
-    pub fn set_type(&mut self, r#type: CellType) -> &mut Self {
-        self.r#type = r#type;
-
-        self
     }
 
     /// Store the value using its [`CellSerialize`] implementation
@@ -175,6 +173,18 @@ impl CellBuilder {
     }
 
     #[inline]
+    pub fn ensure_type(&mut self, cell_type: CellType) -> Result<(), CellBuilderError> {
+        match self.r#type.as_ref() {
+            None => {
+                self.r#type.replace(cell_type);
+                Ok(())
+            }
+            Some(inner) if inner == &cell_type => Ok(()),
+            Some(_) => Err(Error::custom("inconsistent cell type")),
+        }
+    }
+
+    #[inline]
     pub(crate) fn store_reference_as<T, As>(
         &mut self,
         value: T,
@@ -209,12 +219,25 @@ impl CellBuilder {
     #[inline]
     #[must_use]
     pub fn into_cell(self) -> Cell {
-        match self.r#type {
-            CellType::Ordinary => Cell::Ordinary(OrdinaryCell { data: self.data.into_inner(), references: self.references }),
-            CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell { data: self.data.into_inner() }),
-            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell { data: self.data.into_inner() }),
-            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell { data: self.data.into_inner(), references: self.references }),
-            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell { data: self.data.into_inner(), references: self.references })
+        match self.r#type.unwrap_or_default() {
+            CellType::Ordinary => Cell::Ordinary(OrdinaryCell {
+                data: self.data.into_inner(),
+                references: self.references,
+            }),
+            CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell {
+                data: self.data.into_inner(),
+            }),
+            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell {
+                data: self.data.into_inner(),
+            }),
+            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell {
+                data: self.data.into_inner(),
+                references: self.references,
+            }),
+            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
+                data: self.data.into_inner(),
+                references: self.references,
+            }),
         }
     }
 }
