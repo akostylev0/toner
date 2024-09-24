@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tlbits::ResultExt;
 
+use crate::cell_type::CellType;
 use crate::{
     bits::{
         bitvec::{order::Msb0, slice::BitSlice},
@@ -23,14 +24,26 @@ pub type CellParserError<'de> = <CellParser<'de> as BitReader>::Error;
 /// Cell parser created with [`Cell::parser()`].
 #[derive(Clone)]
 pub struct CellParser<'de> {
-    pub(super) data: &'de BitSlice<u8, Msb0>,
-    pub(super) references: &'de [Arc<Cell>],
+    pub(crate) r#type: CellType,
+    pub(crate) level: u8,
+    pub(crate) data: &'de BitSlice<u8, Msb0>,
+    pub(crate) references: &'de [Arc<Cell>],
 }
 
 impl<'de> CellParser<'de> {
     #[inline]
-    pub(crate) const fn new(data: &'de BitSlice<u8, Msb0>, references: &'de [Arc<Cell>]) -> Self {
-        Self { data, references }
+    pub const fn new(
+        r#type: CellType,
+        level: u8,
+        data: &'de BitSlice<u8, Msb0>,
+        references: &'de [Arc<Cell>],
+    ) -> Self {
+        Self {
+            r#type,
+            level,
+            data,
+            references,
+        }
     }
 
     /// Parse the value using its [`CellDeserialize`] implementation
@@ -197,6 +210,18 @@ impl<'de> CellParser<'de> {
         }
         Ok(())
     }
+
+    #[inline]
+    pub fn ensure_type(&self, ty: CellType) -> Result<(), CellParserError<'de>> {
+        if self.r#type != ty {
+            return Err(Error::custom(format!(
+                "expected cell type {}, found {}",
+                self.r#type, ty
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 impl<'de> BitReader for CellParser<'de> {
@@ -227,6 +252,8 @@ impl<'de> CellDeserialize<'de> for CellParser<'de> {
     #[inline]
     fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
         Ok(Self {
+            r#type: parser.r#type,
+            level: parser.level,
             data: mem::take(&mut parser.data),
             references: mem::take(&mut parser.references),
         })

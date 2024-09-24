@@ -2,15 +2,11 @@ use core::marker::PhantomData;
 
 use tlbits::{either::Either, r#as::args::NoArgs, ser::BitWriter};
 
-use crate::{
-    de::{
-        args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
-    },
-    ser::{
-        args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
-    },
-    Cell, ResultExt,
-};
+use crate::{de::{
+    args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
+}, ser::{
+    args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
+}, Cell, CellBehavior, ResultExt};
 
 use super::Same;
 
@@ -102,7 +98,7 @@ where
         As::store_as_with(source, &mut b, args)?;
         let cell = b.into_cell();
         builder.store_as::<_, Either<Same, Ref>>(
-            if cell.data.len() <= builder.capacity_left() {
+            if cell.len() <= builder.capacity_left() {
                 Either::Left
             } else {
                 Either::Right

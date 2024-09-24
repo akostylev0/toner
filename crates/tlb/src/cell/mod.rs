@@ -1,13 +1,26 @@
+mod library_reference_cell;
+mod merkle_proof_cell;
+mod merkle_update_cell;
+mod ordinary_cell;
+mod pruned_branch_cell;
+
+use ambassador::{delegatable_trait, Delegate};
+use bitvec::order::Msb0;
+use bitvec::slice::BitSlice;
+use bitvec::vec::BitVec;
 use core::{
     fmt::{self, Debug},
     hash::Hash,
-    ops::Deref,
 };
 use std::sync::Arc;
 
-use bitvec::{order::Msb0, vec::BitVec};
-use sha2::{Digest, Sha256};
-
+pub use crate::cell::library_reference_cell::LibraryReferenceCell;
+pub use crate::cell::merkle_proof_cell::MerkleProofCell;
+pub use crate::cell::merkle_update_cell::MerkleUpdateCell;
+pub use crate::cell::ordinary_cell::OrdinaryCell;
+pub use crate::cell::pruned_branch_cell::*;
+use crate::cell_type::CellType;
+use crate::level_mask::LevelMask;
 use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
@@ -17,11 +30,129 @@ use crate::{
     ser::CellBuilder,
 };
 
-/// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).  
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
-pub struct Cell {
-    pub data: BitVec<u8, Msb0>,
-    pub references: Vec<Arc<Self>>,
+#[delegatable_trait]
+pub trait CellBehavior {
+    fn as_type(&self) -> CellType;
+
+    fn data(&self) -> &BitVec<u8, Msb0>;
+
+    fn references(&self) -> &[Arc<Cell>];
+
+    /// See [Cell level](https://docs.ton.org/develop/data-formats/cell-boc#cell-level)
+    fn level(&self) -> u8;
+
+    fn max_depth(&self) -> u16;
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    #[inline]
+    fn as_raw_slice(&self) -> &[u8] {
+        self.data().as_raw_slice()
+    }
+
+    #[inline]
+    fn as_bitslice(&self) -> &BitSlice<u8, Msb0> {
+        self.data().as_bitslice()
+    }
+
+    /// Returns whether this cell has no data and zero references.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.data().is_empty() && self.references().is_empty()
+    }
+
+    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
+    #[inline]
+    fn refs_descriptor(&self, level_mask: LevelMask) -> u8 {
+        self.references().len() as u8
+            | if self.as_type().is_exotic() {
+                1 << 3
+            } else {
+                0
+            }
+            | (level_mask.as_u8() << 5)
+    }
+
+    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
+    #[inline]
+    fn bits_descriptor(&self) -> u8 {
+        let b = self.len() + if self.as_type().is_exotic() { 8 } else { 0 };
+
+        (b / 8) as u8 + ((b + 7) / 8) as u8
+    }
+}
+
+#[delegatable_trait]
+pub trait HigherHash {
+    fn level_mask(&self) -> LevelMask;
+
+    fn higher_hash(&self, level: u8) -> [u8; 32];
+
+    fn depth(&self, level: u8) -> u16;
+
+    /// Calculates [standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#cell-hash)
+    #[inline]
+    fn representation_hash(&self) -> [u8; 32] {
+        self.higher_hash(0)
+    }
+}
+
+/// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
+#[derive(Clone, PartialEq, Eq, Hash, Delegate)]
+#[delegate(HigherHash)]
+#[delegate(CellBehavior)]
+pub enum Cell {
+    Ordinary(OrdinaryCell),
+    LibraryReference(LibraryReferenceCell),
+    PrunedBranch(PrunedBranchCell),
+    MerkleProof(MerkleProofCell),
+    MerkleUpdate(MerkleUpdateCell),
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Cell::Ordinary(OrdinaryCell::default())
+    }
+}
+
+impl Cell {
+    pub fn as_library_reference(&self) -> Option<&LibraryReferenceCell> {
+        match self {
+            Cell::LibraryReference(reference) => Some(reference),
+            _ => None,
+        }
+    }
+
+    pub fn as_merkle_proof(&self) -> Option<&MerkleProofCell> {
+        match self {
+            Cell::MerkleProof(proof) => Some(proof),
+            _ => None,
+        }
+    }
+
+    pub fn as_merkle_update(&self) -> Option<&MerkleUpdateCell> {
+        match self {
+            Cell::MerkleUpdate(update) => Some(update),
+            _ => None,
+        }
+    }
+
+    pub fn as_pruned_branch(&self) -> Option<&PrunedBranchCell> {
+        match self {
+            Cell::PrunedBranch(branch) => Some(branch),
+            _ => None,
+        }
+    }
+
+    pub fn as_ordinary(&self) -> Option<&OrdinaryCell> {
+        match self {
+            Cell::Ordinary(cell) => Some(cell),
+            _ => None,
+        }
+    }
 }
 
 impl Cell {
@@ -32,21 +163,16 @@ impl Cell {
         CellBuilder::new()
     }
 
-    /// Create empty cell
-    #[inline]
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            data: BitVec::EMPTY,
-            references: Vec::new(),
-        }
-    }
-
     /// Return [`CellParser`] for this cell
     #[inline]
     #[must_use]
     pub fn parser(&self) -> CellParser<'_> {
-        CellParser::new(&self.data, &self.references)
+        CellParser::new(
+            self.as_type(),
+            self.level(),
+            self.as_bitslice(),
+            self.references(),
+        )
     }
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse()`](CellParser::parse)[`.ensure_empty()`](CellParser::ensure_empty).
@@ -99,117 +225,35 @@ impl Cell {
         parser.ensure_empty()?;
         Ok(v)
     }
-
-    /// Returns whether this cell has no data and zero references.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty() && self.references.is_empty()
-    }
-
-    #[inline]
-    fn data_bytes(&self) -> (usize, &[u8]) {
-        (self.data.len(), self.data.as_raw_slice())
-    }
-
-    /// See [Cell level](https://docs.ton.org/develop/data-formats/cell-boc#cell-level)
-    #[inline]
-    pub fn level(&self) -> u8 {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(Cell::level)
-            .max()
-            .unwrap_or(0)
-    }
-
-    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
-    #[inline]
-    fn refs_descriptor(&self) -> u8 {
-        // TODO: exotic cells
-        self.references.len() as u8 | (self.level() << 5)
-    }
-
-    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
-    #[inline]
-    fn bits_descriptor(&self) -> u8 {
-        let b = self.data.len();
-        (b / 8) as u8 + ((b + 7) / 8) as u8
-    }
-
-    #[inline]
-    fn max_depth(&self) -> u16 {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(Cell::max_depth)
-            .max()
-            .map(|d| d + 1)
-            .unwrap_or(0)
-    }
-
-    /// [Standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#standard-cell-representation-hash-calculation)
-    fn repr(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.push(self.refs_descriptor());
-        buf.push(self.bits_descriptor());
-
-        let rest_bits = self.data.len() % 8;
-
-        if rest_bits == 0 {
-            buf.extend(self.data.as_raw_slice());
-        } else {
-            let (last, data) = self.data.as_raw_slice().split_last().unwrap();
-            buf.extend(data);
-            let mut last = last & (!0u8 << (8 - rest_bits)); // clear the rest
-                                                             // let mut last = last;
-            last |= 1 << (8 - rest_bits - 1); // put stop-bit
-            buf.push(last)
-        }
-
-        // refs depth
-        buf.extend(
-            self.references
-                .iter()
-                .flat_map(|r| r.max_depth().to_be_bytes()),
-        );
-
-        // refs hashes
-        buf.extend(
-            self.references
-                .iter()
-                .map(Deref::deref)
-                .flat_map(Cell::hash),
-        );
-
-        buf
-    }
-
-    /// Calculates [standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#cell-hash)
-    #[inline]
-    pub fn hash(&self) -> [u8; 32] {
-        let mut hasher = Sha256::new();
-        hasher.update(self.repr());
-        hasher.finalize().into()
-    }
 }
 
 impl Debug for Cell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}:L{}:R{}:D{}:",
+            self.as_type(),
+            self.level(),
+            self.references().len(),
+            self.max_depth()
+        )?;
+
         if f.alternate() {
-            write!(f, "{}[0b", self.data.len())?;
-            for bit in &self.data {
+            write!(f, "{}[0b", self.len())?;
+            for bit in self.as_bitslice() {
                 write!(f, "{}", if *bit { '1' } else { '0' })?;
             }
             write!(f, "]")?;
         } else {
-            let (bits_len, data) = self.data_bytes();
+            let bits_len = self.len();
+            let data = self.as_raw_slice();
             write!(f, "{}[0x{}]", bits_len, hex::encode_upper(data))?;
         }
-        if self.references.is_empty() {
+        if self.references().is_empty() {
             return Ok(());
         }
         write!(f, " -> ")?;
-        f.debug_set().entries(&self.references).finish()
+        f.debug_set().entries(self.references()).finish()
     }
 }
 
@@ -222,6 +266,7 @@ mod tests {
         r#as::{Data, Ref},
         ser::{r#as::CellSerializeWrapAsExt, CellSerializeExt},
         tests::assert_store_parse_as_eq,
+        HigherHash,
     };
 
     use super::*;
@@ -264,7 +309,7 @@ mod tests {
         let cell = builder.into_cell();
 
         assert_eq!(
-            cell.hash(),
+            cell.representation_hash(),
             hex!("57b520dbcb9d135863fc33963cde9f6db2ded1430d88056810a2c9434a3860f9")
         );
     }
@@ -282,7 +327,7 @@ mod tests {
         let cell = builder.into_cell();
 
         assert_eq!(
-            cell.hash(),
+            cell.representation_hash(),
             hex!("f345277cc6cfa747f001367e1e873dcfa8a936b8492431248b7a3eeafa8030e7")
         );
     }

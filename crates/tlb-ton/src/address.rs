@@ -16,7 +16,7 @@ use tlb::{
         ser::{BitPack, BitWriter, BitWriterExt},
     },
     ser::{CellBuilderError, CellSerialize, CellSerializeExt},
-    Error, ResultExt, StringError,
+    Error, HigherHash, ResultExt, StringError,
 };
 
 use crate::state_init::StateInit;
@@ -65,7 +65,7 @@ impl MsgAddress {
     {
         Ok(Self {
             workchain_id,
-            address: state_init.to_cell()?.hash(),
+            address: state_init.to_cell()?.representation_hash(),
         })
     }
 

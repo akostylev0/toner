@@ -1,0 +1,100 @@
+use crate::cell::CellBehavior;
+use crate::cell::HigherHash;
+use crate::cell_type::CellType;
+use crate::level_mask::LevelMask;
+use crate::Cell;
+use bitvec::order::Msb0;
+use bitvec::prelude::BitVec;
+use sha2::{Digest, Sha256};
+use std::sync::Arc;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct PrunedBranchCell {
+    pub data: BitVec<u8, Msb0>,
+}
+
+impl CellBehavior for PrunedBranchCell {
+    #[inline]
+    fn as_type(&self) -> CellType {
+        CellType::PrunedBranch
+    }
+
+    #[inline]
+    fn data(&self) -> &BitVec<u8, Msb0> {
+        self.data.as_ref()
+    }
+
+    #[inline]
+    fn references(&self) -> &[Arc<Cell>] {
+        &[]
+    }
+
+    #[inline]
+    fn level(&self) -> u8 {
+        self.data.as_raw_slice().first().cloned().unwrap()
+    }
+
+    #[inline]
+    fn max_depth(&self) -> u16 {
+        self.depths().into_iter().max().unwrap_or(0)
+    }
+}
+
+impl HigherHash for PrunedBranchCell {
+    #[inline]
+    fn level_mask(&self) -> LevelMask {
+        LevelMask::new(
+            self.data
+                .as_raw_slice()
+                .first()
+                .cloned()
+                .expect("invalid data length"),
+        )
+    }
+
+    #[inline]
+    fn higher_hash(&self, level: u8) -> [u8; 32] {
+        if self.level_mask().contains(level) {
+            self.data.as_raw_slice()[1 + (32 * level) as usize..1 + (32 * (level + 1)) as usize]
+                .try_into()
+                .expect("invalid data length")
+        } else {
+            let mut hasher = Sha256::new();
+            hasher.update([
+                self.refs_descriptor(self.level_mask()),
+                self.bits_descriptor(),
+                CellType::PrunedBranch as u8,
+            ]);
+            hasher.update(self.data.as_raw_slice());
+
+            hasher.finalize().into()
+        }
+    }
+
+    #[inline]
+    fn depth(&self, level: u8) -> u16 {
+        if self.level_mask().contains(level) {
+            let view = self.data.as_raw_slice();
+            u16::from_be_bytes([
+                view[(1 + 32 * self.level_mask().as_level() + 2 * level) as usize],
+                view[(1 + 32 * self.level_mask().as_level() + 2 * level + 1) as usize],
+            ])
+        } else {
+            0
+        }
+    }
+}
+
+impl PrunedBranchCell {
+    #[inline]
+    fn depths(&self) -> Vec<u16> {
+        let level = self.level();
+        let depths = &self.data.as_raw_slice()
+            [(1 + 32 * level) as usize..(1 + 32 * level + 2 * level) as usize];
+
+        depths
+            .chunks_exact(2)
+            .map(|c| u16::from_be_bytes(c.try_into().unwrap()))
+            .collect()
+    }
+}

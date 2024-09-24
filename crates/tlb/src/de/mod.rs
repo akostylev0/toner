@@ -5,15 +5,11 @@ mod parser;
 
 pub use self::parser::*;
 
-use core::mem::{self, MaybeUninit};
-use std::{rc::Rc, sync::Arc};
+use core::mem::MaybeUninit;
+use std::{mem, rc::Rc, sync::Arc};
 
-use crate::{
-    bits::de::BitReaderExt,
-    either::Either,
-    r#as::{FromInto, Same},
-    Cell, ResultExt,
-};
+use crate::cell_type::CellType;
+use crate::{bits::de::BitReaderExt, either::Either, r#as::{FromInto, Same}, Cell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell, ResultExt};
 
 /// A type that can be **de**serialized from [`CellParser`].
 pub trait CellDeserialize<'de>: Sized {
@@ -141,9 +137,29 @@ where
 impl<'de> CellDeserialize<'de> for Cell {
     #[inline]
     fn parse(parser: &mut CellParser<'de>) -> Result<Self, CellParserError<'de>> {
-        Ok(Self {
-            data: mem::take(&mut parser.data).to_bitvec(),
-            references: mem::take(&mut parser.references).to_vec(),
-        })
+        let cell = match parser.r#type {
+            CellType::Ordinary => Cell::Ordinary(OrdinaryCell {
+                data: mem::take(&mut parser.data).to_bitvec(),
+                references: mem::take(&mut parser.references).to_vec(),
+            }),
+            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell {
+                data: mem::take(&mut parser.data).to_bitvec(),
+            }),
+            CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell {
+                data: mem::take(&mut parser.data).to_bitvec(),
+            }),
+            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell {
+                data: mem::take(&mut parser.data).to_bitvec(),
+                references: mem::take(&mut parser.references).to_vec(),
+            }),
+            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
+                data: mem::take(&mut parser.data).to_bitvec(),
+                references: mem::take(&mut parser.references).to_vec(),
+            })
+        };
+
+        parser.ensure_empty()?;
+
+        Ok(cell)
     }
 }

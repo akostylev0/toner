@@ -9,12 +9,7 @@ use std::{rc::Rc, sync::Arc};
 
 use impl_tools::autoimpl;
 
-use crate::{
-    bits::ser::BitWriterExt,
-    either::Either,
-    r#as::{Ref, Same},
-    Cell, ResultExt,
-};
+use crate::{bits::ser::BitWriterExt, either::Either, r#as::{Ref, Same}, Cell, CellBehavior, ResultExt};
 
 /// A type that can be **ser**ilalized into [`CellBuilder`].
 #[autoimpl(for <T: trait + ?Sized> &T, &mut T, Box<T>, Rc<T>, Arc<T>)]
@@ -126,8 +121,8 @@ impl CellSerialize for Cell {
     #[inline]
     fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
         builder
-            .pack(self.data.as_bitslice())?
-            .store_many_as::<_, Ref>(&self.references)?;
+            .pack(self.as_bitslice())?
+            .store_many_as::<_, Ref>(self.references())?;
 
         Ok(())
     }
