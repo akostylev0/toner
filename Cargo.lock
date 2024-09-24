@@ -700,6 +700,7 @@ dependencies = [
  "impl-tools",
  "num-bigint",
  "sha2",
+ "strum",
  "tlbits",
 ]
 

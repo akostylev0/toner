@@ -5,7 +5,7 @@ use std::ops::Deref;
 
 use tlb::bits::de::BitReaderExt;
 use tlb::de::args::r#as::CellDeserializeAsWithArgs;
-use tlb::de::{CellParser, CellParserError};
+use tlb::de::{OrdinaryCellParser, OrdinaryCellParserError};
 use tlb::r#as::Ref;
 
 /// [`BinTree X`](https://docs.ton.org/develop/data-formats/tl-b-types#bintree)
@@ -62,9 +62,9 @@ where
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut OrdinaryCellParser<'de>,
         args: Self::Args,
-    ) -> Result<BinTree<T>, CellParserError<'de>> {
+    ) -> Result<BinTree<T>, OrdinaryCellParserError<'de>> {
         Ok(match parser.unpack()? {
             // bt_leaf$0
             false => BinTree::Leaf(parser.parse_as_with::<T, As>(args)?),
@@ -83,19 +83,19 @@ where
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut OrdinaryCellParser<'de>,
         args: Self::Args,
-    ) -> Result<Vec<T>, CellParserError<'de>> {
+    ) -> Result<Vec<T>, OrdinaryCellParserError<'de>> {
         let mut output = Vec::new();
-        let mut stack: Vec<CellParser<'de>> = Vec::new();
+        let mut stack: Vec<OrdinaryCellParser<'de>> = Vec::new();
 
         #[inline]
         fn parse<'de, T, As>(
-            parser: &mut CellParser<'de>,
-            stack: &mut Vec<CellParser<'de>>,
+            parser: &mut OrdinaryCellParser<'de>,
+            stack: &mut Vec<OrdinaryCellParser<'de>>,
             output: &mut Vec<T>,
             args: As::Args,
-        ) -> Result<(), CellParserError<'de>>
+        ) -> Result<(), OrdinaryCellParserError<'de>>
         where
             As: CellDeserializeAsWithArgs<'de, T>,
         {
@@ -142,7 +142,7 @@ mod tests {
             .unwrap();
 
         let got: BinTree<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got.into_leaf(), Some(5));
@@ -159,7 +159,7 @@ mod tests {
             .unwrap();
 
         let [left, right] = data
-            .parse_fully_as_with::<BinTree<u8>, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<BinTree<u8>, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap()
             .into_fork()
             .unwrap();
@@ -176,7 +176,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![5]);
@@ -193,7 +193,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = data
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![5, 3]);
@@ -252,7 +252,7 @@ mod tests {
             .unwrap();
 
         let got: Vec<u8> = root
-            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>>(())
+            .parse_fully_as_with::<_, BinTree<Data<NoArgs<_>>>, _>(())
             .unwrap();
 
         assert_eq!(got, vec![0, 1, 2, 3, 4, 5, 6, 7]);

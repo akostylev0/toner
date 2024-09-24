@@ -7,6 +7,7 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crc::Crc;
+use tlb::cell_type::CellType;
 use tlb::{
     bits::{
         bitvec::{order::Msb0, vec::BitVec, view::AsBits},
@@ -14,7 +15,8 @@ use tlb::{
         r#as::{NBits, VarNBytes},
         ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
     },
-    Cell, Error, ResultExt, StringError,
+    Cell, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell,
+    PrunedBranchCell, ResultExt, StringError,
 };
 
 /// Alias to [`BagOfCells`]
@@ -33,6 +35,7 @@ pub type BoC = BagOfCells;
 /// # };
 /// # use tlb_ton::{boc::{BagOfCells, BagOfCellsArgs}, MsgAddress};
 /// # fn main() -> Result<(), StringError> {
+/// use tlb::OrdinaryCell;
 /// let addr = MsgAddress::NULL;
 /// let mut builder = Cell::builder();
 /// builder.pack(addr)?;
@@ -48,7 +51,7 @@ pub type BoC = BagOfCells;
 /// let got: MsgAddress = unpacked
 ///     .single_root()
 ///     .unwrap()
-///     .parse_fully_as::<_, Data>()?;
+///     .parse_fully_as::<_, Data, OrdinaryCell>()?;
 ///
 /// assert_eq!(got, addr);
 /// # Ok(())
@@ -88,7 +91,7 @@ impl BagOfCells {
         in_refs: &mut HashMap<Arc<Cell>, HashSet<Arc<Cell>>>,
     ) -> Result<(), StringError> {
         if all_cells.insert(cell.clone()) {
-            for r in &cell.references {
+            for r in cell.references() {
                 if r == cell {
                     return Err(Error::custom("cell must not reference itself"));
                 }
@@ -183,7 +186,7 @@ impl BitPackWithArgs for BagOfCells {
         while let Some(cell) = no_in_refs.iter().next().cloned() {
             ordered_cells.push(cell.clone());
             indices.insert(cell.clone(), indices.len() as u32);
-            for child in &cell.references {
+            for child in cell.references() {
                 if let Some(refs) = in_refs.get_mut(child) {
                     refs.remove(&cell);
                     if refs.is_empty() {
@@ -202,9 +205,10 @@ impl BitPackWithArgs for BagOfCells {
             cells: ordered_cells
                 .into_iter()
                 .map(|cell| RawCell {
-                    data: cell.data.clone(),
+                    r#type: cell.as_type(),
+                    data: cell.as_bitslice().into(),
                     references: cell
-                        .references
+                        .references()
                         .iter()
                         .map(|c| *indices.get(c).unwrap())
                         .collect(),
@@ -265,24 +269,63 @@ impl BitUnpack for BagOfCells {
         let num_cells = raw.cells.len();
         let mut cells: Vec<Arc<Cell>> = Vec::new();
         for (i, raw_cell) in raw.cells.into_iter().enumerate().rev() {
-            cells.push(
-                Cell {
-                    data: raw_cell.data,
-                    references: raw_cell
-                        .references
-                        .into_iter()
-                        .map(|r| {
-                            if r <= i as u32 {
-                                return Err(Error::custom(format!(
-                                    "references to previous cells are not supported: [{i}] -> [{r}]"
-                                )));
-                            }
-                            Ok(cells[num_cells - 1 - r as usize].clone())
+            cells.push({
+                let references = raw_cell
+                    .references
+                    .into_iter()
+                    .map(|r| {
+                        if r <= i as u32 {
+                            return Err(Error::custom(format!(
+                                "references to previous cells are not supported: [{i}] -> [{r}]"
+                            )));
+                        }
+                        Ok(cells[num_cells - 1 - r as usize].clone())
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                Arc::new(match raw_cell.r#type {
+                    CellType::Ordinary => Cell::Ordinary(OrdinaryCell {
+                        data: raw_cell.data,
+                        references,
+                    }),
+                    CellType::LibraryReference => {
+                        if !references.is_empty() {
+                            return Err(Error::custom("library reference cannot have references"));
+                        }
+
+                        Cell::LibraryReference(LibraryReferenceCell {
+                            data: raw_cell.data,
                         })
-                        .collect::<Result<_, _>>()?,
-                }
-                .into(),
-            );
+                    }
+                    CellType::PrunedBranch => {
+                        if !references.is_empty() {
+                            return Err(Error::custom("pruned branch cannot have references"));
+                        }
+
+                        Cell::PrunedBranch(PrunedBranchCell {
+                            data: raw_cell.data,
+                        })
+                    }
+                    CellType::MerkleProof => {
+                        if references.len() != 1 {
+                            return Err(Error::custom("merkle proof has exactly one reference"));
+                        }
+                        Cell::MerkleProof(MerkleProofCell {
+                            data: raw_cell.data,
+                            references,
+                        })
+                    }
+                    CellType::MerkleUpdate => {
+                        if references.len() != 2 {
+                            return Err(Error::custom("merkle update has exactly two references"));
+                        }
+                        Cell::MerkleUpdate(MerkleUpdateCell {
+                            data: raw_cell.data,
+                            references,
+                        })
+                    }
+                })
+            });
         }
         Ok(BagOfCells {
             roots: raw
@@ -478,6 +521,7 @@ impl BitUnpack for RawBagOfCells {
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub(crate) struct RawCell {
+    pub r#type: CellType,
     pub data: BitVec<u8, Msb0>,
     pub references: Vec<u32>,
     pub level: u8,
@@ -493,12 +537,21 @@ impl BitUnpackWithArgs for RawCell {
     {
         let refs_descriptor: u8 = reader.unpack()?;
         let level: u8 = refs_descriptor >> 5;
-        let _is_exotic: bool = refs_descriptor >> 3 & 0b1 == 1;
+        let is_exotic: bool = refs_descriptor >> 3 & 0b1 == 1;
         let ref_num: usize = refs_descriptor as usize & 0b111;
 
         let bits_descriptor: u8 = reader.unpack()?;
-        let num_bytes: usize = ((bits_descriptor >> 1) + (bits_descriptor & 1)) as usize;
+        let num_bytes = if is_exotic {
+            ((bits_descriptor >> 1) + (bits_descriptor & 1)) as usize - 1
+        } else {
+            ((bits_descriptor >> 1) + (bits_descriptor & 1)) as usize
+        };
         let full_bytes = (bits_descriptor & 1) == 0;
+        let r#type = if is_exotic {
+            reader.unpack::<CellType>()?
+        } else {
+            CellType::Ordinary
+        };
 
         let mut data: BitVec<u8, Msb0> = reader.unpack_with(num_bytes * 8)?;
         if !data.is_empty() && !full_bytes {
@@ -515,6 +568,7 @@ impl BitUnpackWithArgs for RawCell {
             .collect::<Result<_, _>>()?;
 
         Ok(RawCell {
+            r#type,
             data,
             references,
             level,
@@ -557,5 +611,193 @@ impl RawCell {
     fn size(&self, ref_size_bytes: u32) -> u32 {
         let data_len: u32 = (self.data.len() as u32 + 7) / 8;
         2 + data_len + self.references.len() as u32 * ref_size_bytes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::boc::BagOfCells;
+    use tlb::bits::de::unpack_bytes;
+    use tlb::cell_type::CellType;
+    use tlb::higher_hash::HigherHash;
+
+    // TODO[akostylev0]: move to tlb cell crate
+    #[test]
+    fn block_header_with_merkle_proof_and_pruned_branch() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+        println!("{:?}", boc);
+
+        let root = boc.single_root().unwrap();
+        assert!(root
+            .as_merkle_proof()
+            .expect("must be a merkle proof")
+            .verify());
+        assert!(matches!(root.as_type(), CellType::MerkleProof));
+        let child = root.references().first().unwrap();
+        assert!(matches!(child.as_type(), CellType::Ordinary));
+        let children = child.references();
+        assert!(matches!(
+            children.first().unwrap().as_type(),
+            CellType::Ordinary
+        ));
+        assert!(matches!(
+            children.get(1).unwrap().as_type(),
+            CellType::PrunedBranch
+        ));
+        assert!(matches!(
+            children.get(2).unwrap().as_type(),
+            CellType::PrunedBranch
+        ));
+        assert!(matches!(
+            children.get(3).unwrap().as_type(),
+            CellType::PrunedBranch
+        ));
+    }
+
+    #[test]
+    fn boc_pruned_branch_hashes() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+
+        let root = boc.single_root().unwrap();
+        let child = root.references().first().unwrap();
+        let pruned = child
+            .references()
+            .get(1)
+            .unwrap()
+            .as_pruned_branch()
+            .unwrap();
+        assert_eq!(pruned.depth(0), 3);
+        assert_eq!(pruned.depth(1), 0);
+        assert_eq!(pruned.depth(2), 0);
+        assert_eq!(pruned.depth(3), 0);
+        assert_eq!(
+            hex::encode(pruned.higher_hash(0)),
+            "b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e"
+        );
+        assert_eq!(
+            hex::encode(pruned.higher_hash(1)),
+            "c7560a2d500548aa114f254dca6da29fc2cfd96d5988d19e8708af329b004490"
+        );
+        assert_eq!(
+            hex::encode(pruned.higher_hash(2)),
+            "c7560a2d500548aa114f254dca6da29fc2cfd96d5988d19e8708af329b004490"
+        );
+        assert_eq!(
+            hex::encode(pruned.higher_hash(3)),
+            "c7560a2d500548aa114f254dca6da29fc2cfd96d5988d19e8708af329b004490"
+        );
+    }
+
+    #[test]
+    fn boc_cell_with_pruned_branch_hashes() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+
+        let cell = boc
+            .single_root()
+            .unwrap()
+            .references()
+            .first()
+            .unwrap()
+            .as_ordinary()
+            .unwrap();
+        assert_eq!(cell.depth(0), 22);
+        assert_eq!(cell.depth(1), 2);
+        assert_eq!(cell.depth(2), 2);
+        assert_eq!(cell.depth(3), 2);
+        assert_eq!(
+            hex::encode(cell.higher_hash(0)),
+            "a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(1)),
+            "c4153123dd6a06e70d9223348fab38868bd9ef6d1ca0235f68a4bc2b66486541"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(2)),
+            "c4153123dd6a06e70d9223348fab38868bd9ef6d1ca0235f68a4bc2b66486541"
+        );
+    }
+
+    #[test]
+    fn boc_ordinary_cell_hash1() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+
+        let cell = boc
+            .single_root()
+            .unwrap()
+            .references()
+            .first()
+            .unwrap()
+            .references()
+            .first()
+            .unwrap()
+            .as_ordinary()
+            .unwrap();
+        assert_eq!(cell.depth(1), 1);
+        assert_eq!(
+            hex::encode(cell.higher_hash(0)),
+            "c1f3aa31fbd3fd5c5d3fe8865472244172c3919212611118c014574ff8d51feb"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(1)),
+            "c1f3aa31fbd3fd5c5d3fe8865472244172c3919212611118c014574ff8d51feb"
+        );
+    }
+
+    #[test]
+    fn boc_merkle_proof_depth() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+
+        let cell = boc.single_root().unwrap();
+
+        assert_eq!(cell.depth(0), 3);
+        assert_eq!(cell.depth(1), 3);
+        assert_eq!(cell.depth(2), 3);
+        assert_eq!(cell.depth(3), 3);
+        assert_eq!(cell.depth(4), 3);
+        assert_eq!(cell.depth(5), 3);
+    }
+
+    #[test]
+    fn boc_merkle_proof_hash() {
+        let bytes = hex::decode("b5ee9c720102070100014700094603a7f81658c6047b243f495ae6ba8787517814431f2c1c7896fabe8361b9e16587001601241011ef55aaffffff110203040501a09bc7a9870000000004010267a7050000000100ffffffff000000000000000066e43ab200002cb04eecad8000002cb04eecad847897845d000940eb0267a6ff0267a3d4c40000000800000000000001ee0628480101b815af9b18dca15b27b79ff26f4adfc5613df7a17b27f96bc0593d12f2b9170e0003284801011b9a32271632c8170fbc0071e0f2800c58496f9959021e4ac344f93b69915e69001528480101a98f69c6479a583577cd185eaa589db44e6a49715918356393ae68638fe9c01c0007009800002cb04edd6b440267a7040cd9841277aacd63b5597bfa64fc63aac32be67009332d5ff80e8658acf9cd28dc9b686e30ddfbf904215e24bc991eebe45d5bfd4d26f31f2dee712e67926048").unwrap();
+
+        let boc: BagOfCells = unpack_bytes(bytes).unwrap();
+
+        let cell = boc.single_root().unwrap();
+        assert_eq!(
+            hex::encode(cell.higher_hash(0)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(1)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(2)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(3)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(4)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
+        assert_eq!(
+            hex::encode(cell.higher_hash(5)),
+            "6cf623638282e21f4954a30fe0039cd936f24b22604bbb7c5ea6d51250cc385c"
+        );
     }
 }

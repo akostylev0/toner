@@ -2,17 +2,15 @@ use core::marker::PhantomData;
 
 use tlbits::{de::args::r#as::BitUnpackAsWithArgs, ser::args::r#as::BitPackAsWithArgs};
 
+use super::Same;
+use crate::de::{CellParser, CellParserError};
 use crate::{
     bits::{de::r#as::BitUnpackAs, ser::r#as::BitPackAs},
-    de::{
-        args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs, CellParser, CellParserError,
-    },
+    de::{args::r#as::CellDeserializeAsWithArgs, r#as::CellDeserializeAs},
     ser::{
         args::r#as::CellSerializeAsWithArgs, r#as::CellSerializeAs, CellBuilder, CellBuilderError,
     },
 };
-
-use super::Same;
 
 /// Adapter to implement cell **de**/**ser**ialization from/into binary data.
 ///
@@ -51,12 +49,13 @@ use super::Same;
 /// }
 ///
 /// # fn main() -> Result<(), StringError> {
+/// use tlb::OrdinaryCell;
 /// let v = BinaryData { field: 123 };
 /// # let mut builder = Cell::builder();
 /// // store as binary data
 /// builder.store_as::<_, Data>(v)?;
 /// # let cell = builder.into_cell();
-/// # let mut parser = cell.parser();
+/// # let mut parser = cell.parser::<OrdinaryCell>()?;
 /// # let got =
 /// // parse as binary data
 /// parser.parse_as::<BinaryData, Data>()?;
@@ -94,17 +93,17 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for Data<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for Data<As>
 where
     As: BitUnpackAs<T> + ?Sized,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::unpack_as(parser)
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for Data<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for Data<As>
 where
     As: BitUnpackAsWithArgs<T> + ?Sized,
 {
@@ -112,9 +111,9 @@ where
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::unpack_as_with(parser, args)
     }
 }

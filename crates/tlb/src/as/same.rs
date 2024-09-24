@@ -2,7 +2,7 @@ use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
         r#as::CellDeserializeAs,
-        CellDeserialize, CellParser, CellParserError,
+        CellDeserialize,
     },
     ser::{
         args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -12,54 +12,55 @@ use crate::{
 };
 
 pub use crate::bits::r#as::Same;
+use crate::de::{CellParser, CellParserError};
 
-impl<T> CellSerializeAs<T> for Same
+impl<T, C> CellSerializeAs<T, C> for Same
 where
-    T: CellSerialize,
+    T: CellSerialize<C>,
 {
     #[inline]
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.store(builder)
     }
 }
 
-impl<T> CellSerializeAsWithArgs<T> for Same
+impl<T, C> CellSerializeAsWithArgs<T, C> for Same
 where
-    T: CellSerializeWithArgs,
+    T: CellSerializeWithArgs<C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         T::store_with(source, builder, args)
     }
 }
 
-impl<'de, T> CellDeserializeAs<'de, T> for Same
+impl<'de, T, C> CellDeserializeAs<'de, T, C> for Same
 where
-    T: CellDeserialize<'de>,
+    T: CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         T::parse(parser)
     }
 }
 
-impl<'de, T> CellDeserializeAsWithArgs<'de, T> for Same
+impl<'de, T, C> CellDeserializeAsWithArgs<'de, T, C> for Same
 where
-    T: CellDeserializeWithArgs<'de>,
+    T: CellDeserializeWithArgs<'de, C>,
 {
     type Args = T::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         T::parse_with(parser, args)
     }
 }

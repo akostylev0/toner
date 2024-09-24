@@ -4,7 +4,7 @@ use crate::{
     de::{
         args::{r#as::CellDeserializeAsWithArgs, CellDeserializeWithArgs},
         r#as::CellDeserializeAs,
-        CellDeserialize, CellParser, CellParserError,
+        CellDeserialize,
     },
     ser::{
         args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub use crate::bits::r#as::{FromInto, FromIntoRef, TryFromInto, TryFromIntoRef};
+use crate::de::{CellParser, CellParserError};
 
 impl<T, As> CellSerializeAs<T> for FromInto<As>
 where
@@ -44,27 +45,27 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for FromInto<As>
+impl<'de, C, T, As> CellDeserializeAs<'de, T, C> for FromInto<As>
 where
-    As: Into<T> + CellDeserialize<'de>,
+    As: Into<T> + CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse(parser).map(Into::into)
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for FromInto<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for FromInto<As>
 where
-    As: Into<T> + CellDeserializeWithArgs<'de>,
+    As: Into<T> + CellDeserializeWithArgs<'de, C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::parse_with(parser, args).map(Into::into)
     }
 }
@@ -97,27 +98,27 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for FromIntoRef<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for FromIntoRef<As>
 where
-    As: Into<T> + CellDeserialize<'de>,
+    As: Into<T> + CellDeserialize<'de, C>,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse(parser).map(Into::into)
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for FromIntoRef<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for FromIntoRef<As>
 where
-    As: Into<T> + CellDeserializeWithArgs<'de>,
+    As: Into<T> + CellDeserializeWithArgs<'de, C>,
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::parse_with(parser, args).map(Into::into)
     }
 }
@@ -160,29 +161,29 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for TryFromInto<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for TryFromInto<As>
 where
-    As: TryInto<T> + CellDeserialize<'de>,
+    As: TryInto<T> + CellDeserialize<'de, C>,
     <As as TryInto<T>>::Error: Display,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse(parser)?.try_into().map_err(Error::custom)
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for TryFromInto<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for TryFromInto<As>
 where
-    As: TryInto<T> + CellDeserializeWithArgs<'de>,
+    As: TryInto<T> + CellDeserializeWithArgs<'de, C>,
     <As as TryInto<T>>::Error: Display,
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::parse_with(parser, args)?
             .try_into()
             .map_err(Error::custom)
@@ -223,29 +224,29 @@ where
     }
 }
 
-impl<'de, T, As> CellDeserializeAs<'de, T> for TryFromIntoRef<As>
+impl<'de, T, As, C> CellDeserializeAs<'de, T, C> for TryFromIntoRef<As>
 where
-    As: TryInto<T> + CellDeserialize<'de>,
+    As: TryInto<T> + CellDeserialize<'de, C>,
     <As as TryInto<T>>::Error: Display,
 {
     #[inline]
-    fn parse_as(parser: &mut CellParser<'de>) -> Result<T, CellParserError<'de>> {
+    fn parse_as(parser: &mut CellParser<'de, C>) -> Result<T, CellParserError<'de, C>> {
         As::parse(parser)?.try_into().map_err(Error::custom)
     }
 }
 
-impl<'de, T, As> CellDeserializeAsWithArgs<'de, T> for TryFromIntoRef<As>
+impl<'de, T, As, C> CellDeserializeAsWithArgs<'de, T, C> for TryFromIntoRef<As>
 where
-    As: TryInto<T> + CellDeserializeWithArgs<'de>,
+    As: TryInto<T> + CellDeserializeWithArgs<'de, C>,
     <As as TryInto<T>>::Error: Display,
 {
     type Args = As::Args;
 
     #[inline]
     fn parse_as_with(
-        parser: &mut CellParser<'de>,
+        parser: &mut CellParser<'de, C>,
         args: Self::Args,
-    ) -> Result<T, CellParserError<'de>> {
+    ) -> Result<T, CellParserError<'de, C>> {
         As::parse_with(parser, args)?
             .try_into()
             .map_err(Error::custom)
