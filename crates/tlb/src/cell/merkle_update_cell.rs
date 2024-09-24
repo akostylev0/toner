@@ -1,7 +1,8 @@
+use crate::cell::CellBehavior;
 use crate::cell_type::CellType;
-use crate::higher_hash::HigherHash;
 use crate::level_mask::LevelMask;
 use crate::Cell;
+use crate::HigherHash;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
@@ -15,7 +16,47 @@ pub struct MerkleUpdateCell {
     pub references: Vec<Arc<Cell>>,
 }
 
+impl CellBehavior for MerkleUpdateCell {
+    #[inline]
+    fn as_type(&self) -> CellType {
+        CellType::MerkleUpdate
+    }
+
+    #[inline]
+    fn data(&self) -> &BitVec<u8, Msb0> {
+        self.data.as_ref()
+    }
+
+    #[inline]
+    fn references(&self) -> &[Arc<Cell>] {
+        self.references.as_slice()
+    }
+
+    #[inline]
+    fn level(&self) -> u8 {
+        max(
+            self.references
+                .iter()
+                .map(|r| r.level() - 1)
+                .max()
+                .unwrap_or(0),
+            0,
+        )
+    }
+    #[inline]
+    fn max_depth(&self) -> u16 {
+        self.references
+            .iter()
+            .map(Deref::deref)
+            .map(Cell::max_depth)
+            .max()
+            .map(|d| d + 1)
+            .unwrap_or(0)
+    }
+}
+
 impl HigherHash for MerkleUpdateCell {
+    #[inline]
     fn level_mask(&self) -> LevelMask {
         self.references
             .iter()
@@ -26,6 +67,7 @@ impl HigherHash for MerkleUpdateCell {
             .expect("merkle update cell must have exactly two references")
     }
 
+    #[inline]
     fn higher_hash(&self, level: u8) -> [u8; 32] {
         let level_mask = self.level_mask();
         let max_level = level_mask.apply(level).as_level();
@@ -36,7 +78,7 @@ impl HigherHash for MerkleUpdateCell {
                 let level = level_mask.as_level();
 
                 let mut hasher = Sha256::new();
-                hasher.update([self.refs_descriptor(), self.bits_descriptor()]);
+                hasher.update([self.refs_descriptor(level_mask), self.bits_descriptor()]);
                 if let Some(prev) = acc {
                     hasher.update(prev);
                 } else {
@@ -70,6 +112,7 @@ impl HigherHash for MerkleUpdateCell {
             .expect("level 0 is always present")
     }
 
+    #[inline]
     fn depth(&self, level: u8) -> u16 {
         self.references
             .iter()
@@ -78,41 +121,5 @@ impl HigherHash for MerkleUpdateCell {
             .max()
             .map(|v| v + 1)
             .unwrap_or(0)
-    }
-}
-
-impl MerkleUpdateCell {
-    pub fn level(&self) -> u8 {
-        max(
-            self.references
-                .iter()
-                .map(|r| r.level() - 1)
-                .max()
-                .unwrap_or(0),
-            0,
-        )
-    }
-
-    pub fn max_depth(&self) -> u16 {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(Cell::max_depth)
-            .max()
-            .map(|d| d + 1)
-            .unwrap_or(0)
-    }
-
-    #[inline]
-    fn refs_descriptor(&self) -> u8 {
-        1 + 8 + 32 * self.level()
-    }
-
-    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
-    #[inline]
-    const fn bits_descriptor(&self) -> u8 {
-        let b = 280;
-
-        (b / 8) as u8 + ((b + 7) / 8) as u8
     }
 }

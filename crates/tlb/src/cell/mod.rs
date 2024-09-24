@@ -1,21 +1,19 @@
-pub mod higher_hash;
 mod library_reference_cell;
 mod merkle_proof_cell;
 mod merkle_update_cell;
 mod ordinary_cell;
 mod pruned_branch_cell;
 
+use ambassador::{delegatable_trait, Delegate};
+use bitvec::order::Msb0;
+use bitvec::slice::BitSlice;
+use bitvec::vec::BitVec;
 use core::{
     fmt::{self, Debug},
     hash::Hash,
 };
 use std::sync::Arc;
 
-use bitvec::order::Msb0;
-use bitvec::slice::BitSlice;
-use bitvec::vec::BitVec;
-
-use crate::cell::higher_hash::HigherHash;
 pub use crate::cell::library_reference_cell::LibraryReferenceCell;
 pub use crate::cell::merkle_proof_cell::MerkleProofCell;
 pub use crate::cell::merkle_update_cell::MerkleUpdateCell;
@@ -32,8 +30,80 @@ use crate::{
     ser::CellBuilder,
 };
 
+#[delegatable_trait]
+pub trait CellBehavior {
+    fn as_type(&self) -> CellType;
+
+    fn data(&self) -> &BitVec<u8, Msb0>;
+
+    fn references(&self) -> &[Arc<Cell>];
+
+    /// See [Cell level](https://docs.ton.org/develop/data-formats/cell-boc#cell-level)
+    fn level(&self) -> u8;
+
+    fn max_depth(&self) -> u16;
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    #[inline]
+    fn as_raw_slice(&self) -> &[u8] {
+        self.data().as_raw_slice()
+    }
+
+    #[inline]
+    fn as_bitslice(&self) -> &BitSlice<u8, Msb0> {
+        self.data().as_bitslice()
+    }
+
+    /// Returns whether this cell has no data and zero references.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.data().is_empty() && self.references().is_empty()
+    }
+
+    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
+    #[inline]
+    fn refs_descriptor(&self, level_mask: LevelMask) -> u8 {
+        self.references().len() as u8
+            | if self.as_type().is_exotic() {
+                1 << 3
+            } else {
+                0
+            }
+            | (level_mask.as_u8() << 5)
+    }
+
+    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
+    #[inline]
+    fn bits_descriptor(&self) -> u8 {
+        let b = self.len() + if self.as_type().is_exotic() { 8 } else { 0 };
+
+        (b / 8) as u8 + ((b + 7) / 8) as u8
+    }
+}
+
+#[delegatable_trait]
+pub trait HigherHash {
+    fn level_mask(&self) -> LevelMask;
+
+    fn higher_hash(&self, level: u8) -> [u8; 32];
+
+    fn depth(&self, level: u8) -> u16;
+
+    /// Calculates [standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#cell-hash)
+    #[inline]
+    fn representation_hash(&self) -> [u8; 32] {
+        self.higher_hash(0)
+    }
+}
+
 /// A [Cell](https://docs.ton.org/develop/data-formats/cell-boc#cell).
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Delegate)]
+#[delegate(HigherHash)]
+#[delegate(CellBehavior)]
 pub enum Cell {
     Ordinary(OrdinaryCell),
     LibraryReference(LibraryReferenceCell),
@@ -48,48 +118,7 @@ impl Default for Cell {
     }
 }
 
-impl HigherHash for Cell {
-    fn level_mask(&self) -> LevelMask {
-        match self {
-            Cell::Ordinary(inner) => inner.level_mask(),
-            Cell::LibraryReference(inner) => inner.level_mask(),
-            Cell::PrunedBranch(inner) => inner.level_mask(),
-            Cell::MerkleProof(inner) => inner.level_mask(),
-            Cell::MerkleUpdate(inner) => inner.level_mask(),
-        }
-    }
-    fn higher_hash(&self, level: u8) -> [u8; 32] {
-        match self {
-            Cell::Ordinary(inner) => inner.higher_hash(level),
-            Cell::LibraryReference(inner) => inner.higher_hash(level),
-            Cell::PrunedBranch(inner) => inner.higher_hash(level),
-            Cell::MerkleProof(inner) => inner.higher_hash(level),
-            Cell::MerkleUpdate(inner) => inner.higher_hash(level),
-        }
-    }
-
-    fn depth(&self, level: u8) -> u16 {
-        match self {
-            Cell::Ordinary(inner) => inner.depth(level),
-            Cell::LibraryReference(inner) => inner.depth(level),
-            Cell::PrunedBranch(inner) => inner.depth(level),
-            Cell::MerkleProof(inner) => inner.depth(level),
-            Cell::MerkleUpdate(inner) => inner.depth(level),
-        }
-    }
-}
-
 impl Cell {
-    pub fn as_type(&self) -> CellType {
-        match self {
-            Cell::Ordinary(_) => CellType::Ordinary,
-            Cell::LibraryReference(_) => CellType::LibraryReference,
-            Cell::PrunedBranch(_) => CellType::PrunedBranch,
-            Cell::MerkleProof(_) => CellType::MerkleProof,
-            Cell::MerkleUpdate(_) => CellType::MerkleUpdate,
-        }
-    }
-
     pub fn as_library_reference(&self) -> Option<&LibraryReferenceCell> {
         match self {
             Cell::LibraryReference(reference) => Some(reference),
@@ -132,83 +161,6 @@ impl Cell {
     #[must_use]
     pub const fn builder() -> CellBuilder {
         CellBuilder::new()
-    }
-
-    #[inline]
-    pub fn data(&self) -> &BitVec<u8, Msb0> {
-        match self {
-            Cell::Ordinary(OrdinaryCell { data, .. }) => data,
-            Cell::LibraryReference(LibraryReferenceCell { data }) => data,
-            Cell::PrunedBranch(PrunedBranchCell { data, .. }) => data,
-            Cell::MerkleProof(MerkleProofCell { data, .. }) => data,
-            Cell::MerkleUpdate(MerkleUpdateCell { data, .. }) => data,
-        }
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.data().len()
-    }
-
-    #[inline]
-    pub fn as_raw_slice(&self) -> &[u8] {
-        self.data().as_raw_slice()
-    }
-
-    #[inline]
-    pub fn as_bitslice(&self) -> &BitSlice<u8, Msb0> {
-        self.data().as_bitslice()
-    }
-
-    #[inline]
-    pub fn references(&self) -> &[Arc<Self>] {
-        match self {
-            Cell::Ordinary(OrdinaryCell { references, .. }) => references,
-            Cell::LibraryReference(_) => &[],
-            Cell::PrunedBranch(_) => &[],
-            Cell::MerkleProof(MerkleProofCell { references, .. }) => references,
-            Cell::MerkleUpdate(MerkleUpdateCell { references, .. }) => references,
-        }
-    }
-
-    /// Returns whether this cell has no data and zero references.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.data().is_empty() && self.references().is_empty()
-    }
-
-    #[inline]
-    fn data_bytes(&self) -> (usize, &[u8]) {
-        (self.len(), self.as_raw_slice())
-    }
-
-    /// See [Cell level](https://docs.ton.org/develop/data-formats/cell-boc#cell-level)
-    #[inline]
-    pub fn level(&self) -> u8 {
-        match self {
-            Cell::LibraryReference(inner) => inner.level(),
-            Cell::Ordinary(inner) => inner.level(),
-            Cell::PrunedBranch(inner) => inner.level(),
-            Cell::MerkleProof(inner) => inner.level(),
-            Cell::MerkleUpdate(inner) => inner.level(),
-        }
-    }
-
-    #[inline]
-    fn max_depth(&self) -> u16 {
-        match self {
-            Cell::LibraryReference(inner) => inner.max_depth(),
-            Cell::Ordinary(inner) => inner.max_depth(),
-            Cell::PrunedBranch(inner) => inner.max_depth(),
-            Cell::MerkleProof(inner) => inner.max_depth(),
-            Cell::MerkleUpdate(inner) => inner.max_depth(),
-        }
-    }
-
-    /// Calculates [standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#cell-hash)
-    #[inline]
-    pub fn hash(&self) -> [u8; 32] {
-        self.higher_hash(0)
     }
 
     /// Return [`CellParser`] for this cell
@@ -293,7 +245,8 @@ impl Debug for Cell {
             }
             write!(f, "]")?;
         } else {
-            let (bits_len, data) = self.data_bytes();
+            let bits_len = self.len();
+            let data = self.as_raw_slice();
             write!(f, "{}[0x{}]", bits_len, hex::encode_upper(data))?;
         }
         if self.references().is_empty() {
@@ -313,6 +266,7 @@ mod tests {
         r#as::{Data, Ref},
         ser::{r#as::CellSerializeWrapAsExt, CellSerializeExt},
         tests::assert_store_parse_as_eq,
+        HigherHash,
     };
 
     use super::*;
@@ -355,7 +309,7 @@ mod tests {
         let cell = builder.into_cell();
 
         assert_eq!(
-            cell.hash(),
+            cell.representation_hash(),
             hex!("57b520dbcb9d135863fc33963cde9f6db2ded1430d88056810a2c9434a3860f9")
         );
     }
@@ -373,7 +327,7 @@ mod tests {
         let cell = builder.into_cell();
 
         assert_eq!(
-            cell.hash(),
+            cell.representation_hash(),
             hex!("f345277cc6cfa747f001367e1e873dcfa8a936b8492431248b7a3eeafa8030e7")
         );
     }

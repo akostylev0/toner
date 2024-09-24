@@ -8,16 +8,12 @@ use std::{
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crc::Crc;
 use tlb::cell_type::CellType;
-use tlb::{
-    bits::{
-        bitvec::{order::Msb0, vec::BitVec, view::AsBits},
-        de::{args::BitUnpackWithArgs, BitReader, BitReaderExt, BitUnpack},
-        r#as::{NBits, VarNBytes},
-        ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
-    },
-    Cell, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell,
-    PrunedBranchCell, ResultExt, StringError,
-};
+use tlb::{bits::{
+    bitvec::{order::Msb0, vec::BitVec, view::AsBits},
+    de::{args::BitUnpackWithArgs, BitReader, BitReaderExt, BitUnpack},
+    r#as::{NBits, VarNBytes},
+    ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
+}, Cell, CellBehavior, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell, ResultExt, StringError};
 
 /// Alias to [`BagOfCells`]
 pub type BoC = BagOfCells;
@@ -618,7 +614,8 @@ mod tests {
     use crate::boc::BagOfCells;
     use tlb::bits::de::unpack_bytes;
     use tlb::cell_type::CellType;
-    use tlb::higher_hash::HigherHash;
+    use tlb::CellBehavior;
+    use tlb::HigherHash;
 
     // TODO[akostylev0]: move to tlb cell crate
     #[test]

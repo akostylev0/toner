@@ -1,16 +1,47 @@
-use crate::cell::higher_hash::HigherHash;
+use crate::cell::CellBehavior;
+use crate::cell::HigherHash;
 use crate::cell_type::CellType;
 use crate::level_mask::LevelMask;
+use crate::Cell;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PrunedBranchCell {
     pub data: BitVec<u8, Msb0>,
 }
 
+impl CellBehavior for PrunedBranchCell {
+    #[inline]
+    fn as_type(&self) -> CellType {
+        CellType::PrunedBranch
+    }
+
+    #[inline]
+    fn data(&self) -> &BitVec<u8, Msb0> {
+        self.data.as_ref()
+    }
+
+    #[inline]
+    fn references(&self) -> &[Arc<Cell>] {
+        &[]
+    }
+
+    #[inline]
+    fn level(&self) -> u8 {
+        self.data.as_raw_slice().first().cloned().unwrap()
+    }
+
+    #[inline]
+    fn max_depth(&self) -> u16 {
+        self.depths().into_iter().max().unwrap_or(0)
+    }
+}
+
 impl HigherHash for PrunedBranchCell {
+    #[inline]
     fn level_mask(&self) -> LevelMask {
         LevelMask::new(
             self.data
@@ -21,6 +52,7 @@ impl HigherHash for PrunedBranchCell {
         )
     }
 
+    #[inline]
     fn higher_hash(&self, level: u8) -> [u8; 32] {
         if self.level_mask().contains(level) {
             self.data.as_raw_slice()[1 + (32 * level) as usize..1 + (32 * (level + 1)) as usize]
@@ -29,7 +61,7 @@ impl HigherHash for PrunedBranchCell {
         } else {
             let mut hasher = Sha256::new();
             hasher.update([
-                self.refs_descriptor(),
+                self.refs_descriptor(self.level_mask()),
                 self.bits_descriptor(),
                 CellType::PrunedBranch as u8,
             ]);
@@ -39,6 +71,7 @@ impl HigherHash for PrunedBranchCell {
         }
     }
 
+    #[inline]
     fn depth(&self, level: u8) -> u16 {
         if self.level_mask().contains(level) {
             let view = self.data.as_raw_slice();
@@ -53,14 +86,7 @@ impl HigherHash for PrunedBranchCell {
 }
 
 impl PrunedBranchCell {
-    pub fn max_depth(&self) -> u16 {
-        self.depths().into_iter().max().unwrap_or(0)
-    }
-
-    pub fn level(&self) -> u8 {
-        self.data.as_raw_slice().first().cloned().unwrap()
-    }
-
+    #[inline]
     fn depths(&self) -> Vec<u16> {
         let level = self.level();
         let depths = &self.data.as_raw_slice()
@@ -70,18 +96,5 @@ impl PrunedBranchCell {
             .chunks_exact(2)
             .map(|c| u16::from_be_bytes(c.try_into().unwrap()))
             .collect()
-    }
-
-    #[inline]
-    fn refs_descriptor(&self) -> u8 {
-        8 + 32 * self.level()
-    }
-
-    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
-    #[inline]
-    fn bits_descriptor(&self) -> u8 {
-        let b = self.data.len() + 8;
-
-        (b / 8) as u8 + ((b + 7) / 8) as u8
     }
 }

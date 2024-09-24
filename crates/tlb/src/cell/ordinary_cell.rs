@@ -1,4 +1,6 @@
-use crate::cell::higher_hash::HigherHash;
+use crate::cell::CellBehavior;
+use crate::cell::HigherHash;
+use crate::cell_type::CellType;
 use crate::level_mask::LevelMask;
 use crate::Cell;
 use bitvec::order::Msb0;
@@ -13,7 +15,46 @@ pub struct OrdinaryCell {
     pub references: Vec<Arc<Cell>>,
 }
 
+impl CellBehavior for OrdinaryCell {
+    #[inline]
+    fn as_type(&self) -> CellType {
+        CellType::Ordinary
+    }
+
+    #[inline]
+    fn data(&self) -> &BitVec<u8, Msb0> {
+        self.data.as_ref()
+    }
+
+    #[inline]
+    fn references(&self) -> &[Arc<Cell>] {
+        self.references.as_slice()
+    }
+
+    #[inline]
+    fn level(&self) -> u8 {
+        self.references
+            .iter()
+            .map(Deref::deref)
+            .map(Cell::level)
+            .max()
+            .unwrap_or(0)
+    }
+
+    #[inline]
+    fn max_depth(&self) -> u16 {
+        self.references
+            .iter()
+            .map(Deref::deref)
+            .map(Cell::max_depth)
+            .max()
+            .map(|d| d + 1)
+            .unwrap_or(0)
+    }
+}
+
 impl HigherHash for OrdinaryCell {
+    #[inline]
     fn level_mask(&self) -> LevelMask {
         self.references
             .iter()
@@ -23,6 +64,7 @@ impl HigherHash for OrdinaryCell {
     }
 
     /// [Standard Cell representation hash](https://docs.ton.org/develop/data-formats/cell-boc#standard-cell-representation-hash-calculation)
+    #[inline]
     fn higher_hash(&self, level: u8) -> [u8; 32] {
         let level_mask = self.level_mask();
         let max_level = level_mask.apply(level).as_level();
@@ -65,7 +107,7 @@ impl HigherHash for OrdinaryCell {
             })
             .expect("level 0 is always present")
     }
-
+    #[inline]
     fn depth(&self, level: u8) -> u16 {
         self.references
             .iter()
@@ -77,50 +119,9 @@ impl HigherHash for OrdinaryCell {
     }
 }
 
-impl OrdinaryCell {
-    #[inline]
-    pub fn hash(&self) -> [u8; 32] {
-        self.higher_hash(0)
-    }
-
-    #[inline]
-    pub fn level(&self) -> u8 {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(Cell::level)
-            .max()
-            .unwrap_or(0)
-    }
-
-    #[inline]
-    pub fn max_depth(&self) -> u16 {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(Cell::max_depth)
-            .max()
-            .map(|d| d + 1)
-            .unwrap_or(0)
-    }
-
-    #[inline]
-    fn refs_descriptor(&self, level_mask: LevelMask) -> u8 {
-        self.references.len() as u8 | (level_mask.as_u8() << 5)
-    }
-
-    /// See [Cell serialization](https://docs.ton.org/develop/data-formats/cell-boc#cell-serialization)
-    #[inline]
-    fn bits_descriptor(&self) -> u8 {
-        let b = self.data.len();
-
-        (b / 8) as u8 + ((b + 7) / 8) as u8
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::cell::higher_hash::HigherHash;
+    use crate::cell::HigherHash;
     use crate::OrdinaryCell;
 
     #[test]

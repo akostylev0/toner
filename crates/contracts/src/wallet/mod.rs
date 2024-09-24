@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use num_bigint::BigUint;
 use tlb::{
     ser::{CellBuilderError, CellSerializeExt},
-    Cell,
+    Cell, HigherHash,
 };
 use tlb_ton::{
     action::SendMsgAction,
@@ -182,7 +182,7 @@ where
     /// using this wallet's private key
     #[inline]
     pub fn sign_body(&self, msg: &V::SignBody) -> anyhow::Result<[u8; 64]> {
-        self.sign(msg.to_cell()?.hash())
+        self.sign(msg.to_cell()?.representation_hash())
     }
 
     /// Wrap signed body from [`.sign_body()`](Wallet::sign_body) in a message
