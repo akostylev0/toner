@@ -45,11 +45,13 @@ pub enum Cell {
     MerkleUpdate(MerkleUpdateCell),
 }
 
-pub trait CellBehavior
+pub trait CellBehavior: Into<Cell>
 where
     Self: Sized,
 {
+    fn new(data: BitVec<u8, Msb0>, references: Vec<Arc<Cell>>) -> Self;
     fn parser(&self) -> CellParser<'_, Self>;
+
 
     /// Shortcut for [`.parser()`](Cell::parser)[`.parse()`](OrdinaryCellParser::parse)[`.ensure_empty()`](OrdinaryCellParser::ensure_empty).
     #[inline]
@@ -191,7 +193,7 @@ impl Cell {
     /// Create new [`CellBuilder`]
     #[inline]
     #[must_use]
-    pub const fn builder() -> CellBuilder {
+    pub const fn builder<C>() -> CellBuilder<C> {
         CellBuilder::new()
     }
 

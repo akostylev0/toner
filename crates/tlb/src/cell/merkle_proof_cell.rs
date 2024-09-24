@@ -18,6 +18,10 @@ pub struct MerkleProofCell {
 }
 
 impl CellBehavior for MerkleProofCell {
+    fn new(data: BitVec<u8, Msb0>, references: Vec<Arc<Cell>>) -> Self {
+        Self { data, references }
+    }
+
     #[inline]
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {

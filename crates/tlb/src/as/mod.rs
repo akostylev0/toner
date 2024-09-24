@@ -30,31 +30,31 @@ use crate::{
 use crate::de::{CellParser, CellParserError};
 pub use tlbits::r#as::AsWrap;
 
-impl<'a, T, As> CellSerialize for AsWrap<&'a T, As>
+impl<'a, T, As, C> CellSerialize<C> for AsWrap<&'a T, As>
 where
     T: ?Sized,
     As: ?Sized,
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<T, C>,
 {
     #[inline]
-    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store(&self, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         As::store_as(self.into_inner(), builder)
     }
 }
 
-impl<'a, T, As> CellSerializeWithArgs for AsWrap<&'a T, As>
+impl<'a, T, As, C> CellSerializeWithArgs<C> for AsWrap<&'a T, As>
 where
     T: ?Sized,
-    As: CellSerializeAsWithArgs<T> + ?Sized,
+    As: CellSerializeAsWithArgs<T, C> + ?Sized,
 {
     type Args = As::Args;
 
     #[inline]
     fn store_with(
         &self,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         As::store_as_with(self.into_inner(), builder, args)
     }
 }

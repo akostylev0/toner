@@ -3,7 +3,7 @@ use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
 use std::mem;
-
+use std::sync::Arc;
 use crate::cell::higher_hash::HigherHash;
 use crate::cell::CellBehavior;
 use crate::cell_type::CellType;
@@ -16,6 +16,10 @@ pub struct PrunedBranchCell {
 }
 
 impl CellBehavior for PrunedBranchCell {
+    fn new(data: BitVec<u8, Msb0>, _: Vec<Arc<Cell>>) -> Self {
+        Self { data }
+    }
+
     #[inline]
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {

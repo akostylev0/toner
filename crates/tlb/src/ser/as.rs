@@ -1,6 +1,6 @@
 use std::{rc::Rc, sync::Arc};
 
-use crate::{either::Either, r#as::AsWrap, ResultExt};
+use crate::{either::Either, r#as::AsWrap, OrdinaryCell, ResultExt};
 
 use super::{CellBuilder, CellBuilderError, CellSerialize};
 
@@ -9,39 +9,39 @@ use super::{CellBuilder, CellBuilderError, CellSerialize};
 ///
 /// For dynamic arguments, see
 /// [`CellSerializeAsWithArgs`](super::args::as::CellSerializeAsWithArgs).
-pub trait CellSerializeAs<T: ?Sized> {
+pub trait CellSerializeAs<T: ?Sized, C = OrdinaryCell> {
     /// Store given value using an adapter
-    fn store_as(source: &T, builder: &mut CellBuilder) -> Result<(), CellBuilderError>;
+    fn store_as(source: &T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>>;
 }
 
-impl<'a, T, As> CellSerializeAs<&'a T> for &'a As
+impl<'a, T, As, C> CellSerializeAs<&'a T, C> for &'a As
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
     T: ?Sized,
 {
     #[inline]
-    fn store_as(source: &&T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &&T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         AsWrap::<&T, As>::new(source).store(builder)
     }
 }
 
-impl<'a, T, As> CellSerializeAs<&'a mut T> for &'a mut As
+impl<'a, T, As, C> CellSerializeAs<&'a mut T, C> for &'a mut As
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
     T: ?Sized,
 {
     #[inline]
-    fn store_as(source: &&mut T, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &&mut T, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         AsWrap::<&T, As>::new(source).store(builder)
     }
 }
 
-impl<T, As> CellSerializeAs<[T]> for [As]
+impl<T, As, C> CellSerializeAs<[T], C> for [As]
 where
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<T, C>,
 {
     #[inline]
-    fn store_as(source: &[T], builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &[T], builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         for (i, v) in source.iter().enumerate() {
             builder
                 .store_as::<&T, &As>(v)
@@ -51,12 +51,12 @@ where
     }
 }
 
-impl<T, As, const N: usize> CellSerializeAs<[T; N]> for [As; N]
+impl<T, As, const N: usize, C> CellSerializeAs<[T; N], C> for [As; N]
 where
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<T, C>,
 {
     #[inline]
-    fn store_as(source: &[T; N], builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &[T; N], builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         builder.store_as::<&[T], &[As]>(source)?;
         Ok(())
     }
@@ -64,13 +64,13 @@ where
 
 macro_rules! impl_cell_serialize_as_for_tuple {
     ($($n:tt:$t:ident as $a:ident),+) => {
-        impl<$($t, $a),+> CellSerializeAs<($($t,)+)> for ($($a,)+)
+        impl<$($t, $a),+, C> CellSerializeAs<($($t,)+), C> for ($($a,)+)
         where $(
-            $a: CellSerializeAs<$t>,
+            $a: CellSerializeAs<$t, C>,
         )+
         {
             #[inline]
-            fn store_as(source: &($($t,)+), builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+            fn store_as(source: &($($t,)+), builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
                 builder$(
                     .store_as::<&$t, &$a>(&source.$n)?)+;
                 Ok(())
@@ -89,32 +89,32 @@ impl_cell_serialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as As
 impl_cell_serialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as As3,4:T4 as As4,5:T5 as As5,6:T6 as As6,7:T7 as As7,8:T8 as As8);
 impl_cell_serialize_as_for_tuple!(0:T0 as As0,1:T1 as As1,2:T2 as As2,3:T3 as As3,4:T4 as As4,5:T5 as As5,6:T6 as As6,7:T7 as As7,8:T8 as As8,9:T9 as As9);
 
-impl<T, As> CellSerializeAs<Box<T>> for Box<As>
+impl<T, As, C> CellSerializeAs<Box<T>, C> for Box<As>
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
 {
     #[inline]
-    fn store_as(source: &Box<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Box<T>, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         AsWrap::<&T, As>::new(source).store(builder)
     }
 }
 
-impl<T, As> CellSerializeAs<Rc<T>> for Rc<As>
+impl<T, As, C> CellSerializeAs<Rc<T>, C> for Rc<As>
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
 {
     #[inline]
-    fn store_as(source: &Rc<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Rc<T>, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         AsWrap::<&T, As>::new(source).store(builder)
     }
 }
 
-impl<T, As> CellSerializeAs<Arc<T>> for Arc<As>
+impl<T, As, C> CellSerializeAs<Arc<T>, C> for Arc<As>
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
 {
     #[inline]
-    fn store_as(source: &Arc<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Arc<T>, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         AsWrap::<&T, As>::new(source).store(builder)
     }
 }
@@ -124,16 +124,16 @@ where
 /// left$0 {X:Type} {Y:Type} value:X = Either X Y;
 /// right$1 {X:Type} {Y:Type} value:Y = Either X Y;
 /// ```
-impl<Left, Right, AsLeft, AsRight> CellSerializeAs<Either<Left, Right>> for Either<AsLeft, AsRight>
+impl<Left, Right, AsLeft, AsRight, C> CellSerializeAs<Either<Left, Right>, C> for Either<AsLeft, AsRight>
 where
-    AsLeft: CellSerializeAs<Left>,
-    AsRight: CellSerializeAs<Right>,
+    AsLeft: CellSerializeAs<Left, C>,
+    AsRight: CellSerializeAs<Right, C>,
 {
     #[inline]
     fn store_as(
         source: &Either<Left, Right>,
-        builder: &mut CellBuilder,
-    ) -> Result<(), CellBuilderError> {
+        builder: &mut CellBuilder<C>,
+    ) -> Result<(), CellBuilderError<C>> {
         source
             .as_ref()
             .map_either(AsWrap::<&Left, AsLeft>::new, AsWrap::<&Right, AsRight>::new)
@@ -141,12 +141,12 @@ where
     }
 }
 
-impl<T, As> CellSerializeAs<Option<T>> for Either<(), As>
+impl<T, As, C> CellSerializeAs<Option<T>, C> for Either<(), As>
 where
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<T, C>,
 {
     #[inline]
-    fn store_as(source: &Option<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Option<T>, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         match source.as_ref() {
             None => Either::Left(()),
             Some(v) => Either::Right(AsWrap::<&T, As>::new(v)),
@@ -160,12 +160,12 @@ where
 /// nothing$0 {X:Type} = Maybe X;
 /// just$1 {X:Type} value:X = Maybe X;
 /// ```
-impl<T, As> CellSerializeAs<Option<T>> for Option<As>
+impl<T, As, C> CellSerializeAs<Option<T>, C> for Option<As>
 where
-    As: CellSerializeAs<T>,
+    As: CellSerializeAs<T, C>,
 {
     #[inline]
-    fn store_as(source: &Option<T>, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+    fn store_as(source: &Option<T>, builder: &mut CellBuilder<C>) -> Result<(), CellBuilderError<C>> {
         source.as_ref().map(AsWrap::<_, As>::new).store(builder)
     }
 }

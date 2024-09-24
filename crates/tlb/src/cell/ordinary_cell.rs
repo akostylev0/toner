@@ -2,15 +2,17 @@ use std::mem;
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
 
-use bitvec::order::Msb0;
-use bitvec::prelude::BitVec;
-use sha2::{Digest, Sha256};
-
 use crate::cell::higher_hash::HigherHash;
 use crate::cell::CellBehavior;
 use crate::de::{CellDeserialize, CellParser, CellParserError};
 use crate::level_mask::LevelMask;
+use crate::r#as::Ref;
+use crate::ser::{CellBuilder, CellBuilderError, CellSerialize};
 use crate::Cell;
+use bitvec::order::Msb0;
+use bitvec::prelude::BitVec;
+use sha2::{Digest, Sha256};
+use tlbits::ser::BitWriterExt;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
 pub struct OrdinaryCell {
@@ -29,6 +31,16 @@ impl<'de> CellDeserialize<'de, Self> for OrdinaryCell {
 
         parser.ensure_empty()?;
         Ok(cell)
+    }
+}
+
+impl CellSerialize for OrdinaryCell {
+    fn store(&self, builder: &mut CellBuilder) -> Result<(), CellBuilderError> {
+        builder
+            .pack(self.data.as_bitslice())?
+            .store_many_as::<_, Ref>(&self.references)?;
+
+        Ok(())
     }
 }
 
@@ -104,6 +116,11 @@ impl HigherHash for OrdinaryCell {
 
 impl CellBehavior for OrdinaryCell {
     #[inline]
+    fn new(data: BitVec<u8, Msb0>, references: Vec<Arc<Cell>>) -> Self {
+        Self { data, references }
+    }
+
+    #[inline]
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {
         CellParser::new(self.level(), self.data.as_bitslice(), &self.references)
@@ -111,6 +128,10 @@ impl CellBehavior for OrdinaryCell {
 }
 
 impl OrdinaryCell {
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
     #[inline]
     pub fn hash(&self) -> [u8; 32] {
         self.higher_hash(0)

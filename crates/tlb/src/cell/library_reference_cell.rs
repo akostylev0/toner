@@ -6,6 +6,7 @@ use crate::Cell;
 use bitvec::order::Msb0;
 use bitvec::vec::BitVec;
 use std::mem;
+use std::sync::Arc;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct LibraryReferenceCell {
@@ -13,6 +14,10 @@ pub struct LibraryReferenceCell {
 }
 
 impl CellBehavior for LibraryReferenceCell {
+    fn new(data: BitVec<u8, Msb0>, _: Vec<Arc<Cell>>) -> Self {
+        Self { data }
+    }
+
     #[inline]
     #[must_use]
     fn parser(&self) -> CellParser<'_, Self> {

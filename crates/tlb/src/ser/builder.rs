@@ -1,10 +1,14 @@
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::cell_type::CellType;
-use crate::{bits::{
-    bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
-    ser::{BitWriter, LimitWriter},
-}, r#as::Ref, Cell, Error, ResultExt, OrdinaryCell, PrunedBranchCell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell};
+use crate::{
+    bits::{
+        bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
+        ser::{BitWriter, LimitWriter},
+    },
+    r#as::Ref,
+    Cell, CellBehavior, Error, OrdinaryCell, ResultExt,
+};
 
 use super::{
     args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
@@ -15,14 +19,14 @@ use super::{
 type CellBitWriter = LimitWriter<BitVec<u8, Msb0>>;
 
 /// [`Error`] for [`CellBuilder`]
-pub type CellBuilderError = <CellBuilder as BitWriter>::Error;
+pub type CellBuilderError<C = OrdinaryCell> = <CellBuilder<C> as BitWriter>::Error;
 
 /// Cell builder created with [`Cell::builder()`].
 ///
 /// [`CellBuilder`] can then be converted to constructed [`Cell`] by using
 /// [`.into_cell()`](CellBuilder::into_cell).
-pub struct CellBuilder {
-    r#type: CellType,
+pub struct CellBuilder<C = OrdinaryCell> {
+    r#type: PhantomData<C>,
     data: CellBitWriter,
     references: Vec<Arc<Cell>>,
 }
@@ -30,29 +34,22 @@ pub struct CellBuilder {
 const MAX_BITS_LEN: usize = 1023;
 const MAX_REFS_COUNT: usize = 4;
 
-impl CellBuilder {
+impl<C> CellBuilder<C> {
     #[inline]
     #[must_use]
     pub(crate) const fn new() -> Self {
         Self {
-            r#type: CellType::Ordinary,
+            r#type: PhantomData,
             data: LimitWriter::new(BitVec::EMPTY, MAX_BITS_LEN),
             references: Vec::new(),
         }
     }
 
-    #[inline]
-    pub fn set_type(&mut self, r#type: CellType) -> &mut Self {
-        self.r#type = r#type;
-
-        self
-    }
-
     /// Store the value using its [`CellSerialize`] implementation
     #[inline]
-    pub fn store<T>(&mut self, value: T) -> Result<&mut Self, CellBuilderError>
+    pub fn store<T>(&mut self, value: T) -> Result<&mut Self, CellBuilderError<C>>
     where
-        T: CellSerialize,
+        T: CellSerialize<C>,
     {
         value.store(self)?;
         Ok(self)
@@ -61,9 +58,13 @@ impl CellBuilder {
     /// Store the value with args using its [`CellSerializeWithArgs`]
     /// implementation
     #[inline]
-    pub fn store_with<T>(&mut self, value: T, args: T::Args) -> Result<&mut Self, CellBuilderError>
+    pub fn store_with<T>(
+        &mut self,
+        value: T,
+        args: T::Args,
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        T: CellSerializeWithArgs,
+        T: CellSerializeWithArgs<C>,
     {
         value.store_with(self, args)?;
         Ok(self)
@@ -75,9 +76,9 @@ impl CellBuilder {
     pub fn store_many<T>(
         &mut self,
         values: impl IntoIterator<Item = T>,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        T: CellSerialize,
+        T: CellSerialize<C>,
     {
         for (i, v) in values.into_iter().enumerate() {
             self.store(v).with_context(|| format!("[{i}]"))?;
@@ -92,9 +93,9 @@ impl CellBuilder {
         &mut self,
         values: impl IntoIterator<Item = T>,
         args: T::Args,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        T: CellSerializeWithArgs,
+        T: CellSerializeWithArgs<C>,
         T::Args: Clone,
     {
         for (i, v) in values.into_iter().enumerate() {
@@ -107,9 +108,9 @@ impl CellBuilder {
     /// Store given value using an adapter.  
     /// See [`as`](crate::as) module-level documentation for more.
     #[inline]
-    pub fn store_as<T, As>(&mut self, value: T) -> Result<&mut Self, CellBuilderError>
+    pub fn store_as<T, As>(&mut self, value: T) -> Result<&mut Self, CellBuilderError<C>>
     where
-        As: CellSerializeAs<T> + ?Sized,
+        As: CellSerializeAs<T, C> + ?Sized,
     {
         As::store_as(&value, self)?;
         Ok(self)
@@ -122,9 +123,9 @@ impl CellBuilder {
         &mut self,
         value: T,
         args: As::Args,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        As: CellSerializeAsWithArgs<T> + ?Sized,
+        As: CellSerializeAsWithArgs<T, C> + ?Sized,
     {
         As::store_as_with(&value, self, args)?;
         Ok(self)
@@ -138,7 +139,7 @@ impl CellBuilder {
         values: impl IntoIterator<Item = T>,
     ) -> Result<&mut Self, CellBuilderError>
     where
-        As: CellSerializeAs<T> + ?Sized,
+        As: CellSerializeAs<T, C> + ?Sized,
     {
         for (i, v) in values.into_iter().enumerate() {
             self.store_as::<T, As>(v)
@@ -154,9 +155,9 @@ impl CellBuilder {
         &mut self,
         values: impl IntoIterator<Item = T>,
         args: As::Args,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        As: CellSerializeAsWithArgs<T> + ?Sized,
+        As: CellSerializeAsWithArgs<T, C> + ?Sized,
         As::Args: Clone,
     {
         for (i, v) in values.into_iter().enumerate() {
@@ -167,7 +168,7 @@ impl CellBuilder {
     }
 
     #[inline]
-    fn ensure_reference(&self) -> Result<(), CellBuilderError> {
+    fn ensure_reference(&self) -> Result<(), CellBuilderError<C>> {
         if self.references.len() == MAX_REFS_COUNT {
             return Err(Error::custom("too many references"));
         }
@@ -175,51 +176,50 @@ impl CellBuilder {
     }
 
     #[inline]
-    pub(crate) fn store_reference_as<T, As>(
+    pub(crate) fn store_reference_as<T, As, I>(
         &mut self,
         value: T,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        As: CellSerializeAs<T> + ?Sized,
+        As: CellSerializeAs<T, I> + ?Sized,
+        I: CellBehavior,
     {
         self.ensure_reference()?;
-        let mut builder = Self::new();
+        let mut builder = CellBuilder::<I>::new();
         builder.store_as::<T, As>(value)?;
         self.references.push(builder.into_cell().into());
         Ok(self)
     }
 
     #[inline]
-    pub(crate) fn store_reference_as_with<T, As>(
+    pub(crate) fn store_reference_as_with<T, As, I>(
         &mut self,
         value: T,
         args: As::Args,
-    ) -> Result<&mut Self, CellBuilderError>
+    ) -> Result<&mut Self, CellBuilderError<C>>
     where
-        As: CellSerializeAsWithArgs<T> + ?Sized,
+        As: CellSerializeAsWithArgs<T, I> + ?Sized,
+        I: CellBehavior,
     {
         self.ensure_reference()?;
-        let mut builder = Self::new();
+        let mut builder = CellBuilder::<I>::new();
         builder.store_as_with::<T, As>(value, args)?;
         self.references.push(builder.into_cell().into());
         Ok(self)
     }
+}
 
-    /// Convert builder to [`Cell`]
-    #[inline]
-    #[must_use]
+impl<C> CellBuilder<C>
+where
+    C: CellBehavior,
+{
     pub fn into_cell(self) -> Cell {
-        match self.r#type {
-            CellType::Ordinary => Cell::Ordinary(OrdinaryCell { data: self.data.into_inner(), references: self.references }),
-            CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell { data: self.data.into_inner() }),
-            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell { data: self.data.into_inner() }),
-            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell { data: self.data.into_inner(), references: self.references }),
-            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell { data: self.data.into_inner(), references: self.references })
-        }
+        let inner = C::new(self.data.into_inner(), self.references);
+        inner.into()
     }
 }
 
-impl BitWriter for CellBuilder {
+impl<C> BitWriter for CellBuilder<C> {
     type Error = <CellBitWriter as BitWriter>::Error;
 
     #[inline]

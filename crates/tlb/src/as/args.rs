@@ -8,18 +8,18 @@ use crate::{
 pub use crate::bits::r#as::args::{DefaultArgs, NoArgs};
 use crate::de::{CellParser, CellParserError};
 
-impl<T, As, Args> CellSerializeAsWithArgs<T> for NoArgs<Args, As>
+impl<T, As, Args, C> CellSerializeAsWithArgs<T, C> for NoArgs<Args, As>
 where
-    As: CellSerializeAs<T> + ?Sized,
+    As: CellSerializeAs<T, C> + ?Sized,
 {
     type Args = Args;
 
     #[inline]
     fn store_as_with(
         source: &T,
-        builder: &mut CellBuilder,
+        builder: &mut CellBuilder<C>,
         _args: Self::Args,
-    ) -> Result<(), CellBuilderError> {
+    ) -> Result<(), CellBuilderError<C>> {
         As::store_as(source, builder)
     }
 }
