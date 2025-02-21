@@ -55,7 +55,7 @@ use super::Same;
 /// # let mut builder = Cell::builder();
 /// // store as binary data
 /// builder.store_as::<_, Data>(v)?;
-/// # let cell = builder.into_cell();
+/// # let cell = builder.into_cell()?;
 /// # let mut parser = cell.parser();
 /// # let got =
 /// // parse as binary data

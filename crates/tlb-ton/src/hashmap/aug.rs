@@ -721,7 +721,7 @@ mod tests {
         builder
             .store_as_with::<_, HashmapE<Data<NoArgs<_>>, NoArgs<_>>>(hm, (8, (), ()))
             .unwrap();
-        let got = builder.into_cell();
+        let got = builder.into_cell().unwrap();
         assert_eq!(got, cell);
     }
 

@@ -7,7 +7,6 @@ mod pruned_branch_cell;
 use ambassador::{delegatable_trait, Delegate};
 use bitvec::order::Msb0;
 use bitvec::slice::BitSlice;
-use bitvec::vec::BitVec;
 use core::{
     fmt::{self, Debug},
     hash::Hash,
@@ -34,7 +33,7 @@ use crate::{
 pub trait CellBehavior {
     fn as_type(&self) -> CellType;
 
-    fn data(&self) -> &BitVec<u8, Msb0>;
+    fn data(&self) -> &BitSlice<u8, Msb0>;
 
     fn references(&self) -> &[Arc<Cell>];
 
@@ -49,13 +48,8 @@ pub trait CellBehavior {
     }
 
     #[inline]
-    fn as_raw_slice(&self) -> &[u8] {
-        self.data().as_raw_slice()
-    }
-
-    #[inline]
     fn as_bitslice(&self) -> &BitSlice<u8, Msb0> {
-        self.data().as_bitslice()
+        self.data()
     }
 
     /// Returns whether this cell has no data and zero references.
@@ -246,8 +240,8 @@ impl Debug for Cell {
             write!(f, "]")?;
         } else {
             let bits_len = self.len();
-            let data = self.as_raw_slice();
-            write!(f, "{}[0x{}]", bits_len, hex::encode_upper(data))?;
+            let data = self.as_bitslice().to_bitvec();
+            write!(f, "{}[0x{}]", bits_len, hex::encode_upper(data.as_raw_slice()))?;
         }
         if self.references().is_empty() {
             return Ok(());
@@ -306,7 +300,7 @@ mod tests {
     fn hash_no_refs() {
         let mut builder = Cell::builder();
         builder.pack_as::<_, NBits<32>>(0x0000000F).unwrap();
-        let cell = builder.into_cell();
+        let cell = builder.into_cell().unwrap();
 
         assert_eq!(
             cell.representation_hash(),
@@ -324,7 +318,7 @@ mod tests {
             .unwrap()
             .store_reference_as::<_, Data>(0x0000000F_u32)
             .unwrap();
-        let cell = builder.into_cell();
+        let cell = builder.into_cell().unwrap();
 
         assert_eq!(
             cell.representation_hash(),

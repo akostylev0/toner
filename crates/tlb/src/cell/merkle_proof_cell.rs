@@ -3,16 +3,26 @@ use crate::cell::HigherHash;
 use crate::cell_type::CellType;
 use crate::level_mask::LevelMask;
 use crate::Cell;
+use bitvec::array::BitArray;
 use bitvec::order::Msb0;
-use bitvec::prelude::BitVec;
+use bitvec::prelude::BitSlice;
 use sha2::{Digest, Sha256};
 use std::cmp::max;
 use std::sync::Arc;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct MerkleProofCell {
-    pub data: BitVec<u8, Msb0>,
-    pub references: Vec<Arc<Cell>>,
+    pub data: BitArray<[u8; 34], Msb0>,
+    pub references: [Arc<Cell>; 1],
+}
+
+impl MerkleProofCell {
+    pub fn from_bitslice(bits: &BitSlice<u8, Msb0>, references: [Arc<Cell>; 1]) -> Self {
+        let mut data = BitArray::default();
+        data.copy_from_bitslice(bits);
+
+        Self { data, references }
+    }
 }
 
 impl CellBehavior for MerkleProofCell {
@@ -22,7 +32,7 @@ impl CellBehavior for MerkleProofCell {
     }
 
     #[inline]
-    fn data(&self) -> &BitVec<u8, Msb0> {
+    fn data(&self) -> &BitSlice<u8, Msb0> {
         self.data.as_ref()
     }
 
@@ -96,9 +106,6 @@ impl MerkleProofCell {
 
     #[inline]
     fn reference(&self) -> Arc<Cell> {
-        self.references
-            .first()
-            .cloned()
-            .expect("must have exactly one reference")
+        self.references[0].clone()
     }
 }

@@ -8,12 +8,16 @@ use std::{
 use base64::{engine::general_purpose::STANDARD, Engine};
 use crc::Crc;
 use tlb::cell_type::CellType;
-use tlb::{bits::{
-    bitvec::{order::Msb0, vec::BitVec, view::AsBits},
-    de::{args::BitUnpackWithArgs, BitReader, BitReaderExt, BitUnpack},
-    r#as::{NBits, VarNBytes},
-    ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
-}, Cell, CellBehavior, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell, ResultExt, StringError};
+use tlb::{
+    bits::{
+        bitvec::{order::Msb0, vec::BitVec, view::AsBits},
+        de::{args::BitUnpackWithArgs, BitReader, BitReaderExt, BitUnpack},
+        r#as::{NBits, VarNBytes},
+        ser::{args::BitPackWithArgs, BitWriter, BitWriterExt},
+    },
+    Cell, CellBehavior, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell,
+    OrdinaryCell, PrunedBranchCell, ResultExt, StringError,
+};
 
 /// Alias to [`BagOfCells`]
 pub type BoC = BagOfCells;
@@ -34,7 +38,7 @@ pub type BoC = BagOfCells;
 /// let addr = MsgAddress::NULL;
 /// let mut builder = Cell::builder();
 /// builder.pack(addr)?;
-/// let root = builder.into_cell();
+/// let root = builder.into_cell()?;
 ///
 /// let boc = BagOfCells::from_root(root);
 /// let packed = pack_with(boc, BagOfCellsArgs {
@@ -288,9 +292,13 @@ impl BitUnpack for BagOfCells {
                             return Err(Error::custom("library reference cannot have references"));
                         }
 
-                        Cell::LibraryReference(LibraryReferenceCell {
-                            data: raw_cell.data,
-                        })
+                        if raw_cell.data.len() != 256 {
+                            return Err(Error::custom("library reference must have 256 bits"));
+                        }
+
+                        Cell::LibraryReference(LibraryReferenceCell::from_bitslice(
+                            raw_cell.data.as_bitslice(),
+                        ))
                     }
                     CellType::PrunedBranch => {
                         if !references.is_empty() {
@@ -303,16 +311,25 @@ impl BitUnpack for BagOfCells {
                     }
                     CellType::MerkleProof => {
                         if references.len() != 1 {
-                            return Err(Error::custom("merkle proof has exactly one reference"));
+                            return Err(Error::custom("merkle proof as exactly one reference"));
                         }
-                        Cell::MerkleProof(MerkleProofCell {
-                            data: raw_cell.data,
-                            references,
-                        })
+
+                        if raw_cell.data.len() != 272 {
+                            return Err(Error::custom("merkle proof must have 272 bits"));
+                        }
+
+                        let reference = references
+                            .first()
+                            .ok_or(Error::custom("merkle proof as exactly one reference"))?;
+
+                        Cell::MerkleProof(MerkleProofCell::from_bitslice(
+                            raw_cell.data.as_bitslice(),
+                            [reference.clone()],
+                        ))
                     }
                     CellType::MerkleUpdate => {
                         if references.len() != 2 {
-                            return Err(Error::custom("merkle update has exactly two references"));
+                            return Err(Error::custom("merkle update as exactly two references"));
                         }
                         Cell::MerkleUpdate(MerkleUpdateCell {
                             data: raw_cell.data,

@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::cmp::max;
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
+use bitvec::slice::BitSlice;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct MerkleUpdateCell {
@@ -23,7 +24,7 @@ impl CellBehavior for MerkleUpdateCell {
     }
 
     #[inline]
-    fn data(&self) -> &BitVec<u8, Msb0> {
+    fn data(&self) -> &BitSlice<u8, Msb0> {
         self.data.as_ref()
     }
 

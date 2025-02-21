@@ -133,7 +133,8 @@ pub trait CellSerializeExt: CellSerialize {
     fn to_cell(&self) -> Result<Cell, CellBuilderError> {
         let mut builder = Cell::builder();
         self.store(&mut builder)?;
-        Ok(builder.into_cell())
+
+        builder.into_cell()
     }
 }
 impl<T> CellSerializeExt for T where T: CellSerialize {}

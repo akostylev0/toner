@@ -1,6 +1,10 @@
-use std::sync::Arc;
-
+use super::{
+    args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
+    r#as::CellSerializeAs,
+    CellSerialize,
+};
 use crate::cell_type::CellType;
+use crate::de::CellParserError;
 use crate::{
     bits::{
         bitvec::{order::Msb0, slice::BitSlice, vec::BitVec},
@@ -10,12 +14,7 @@ use crate::{
     Cell, Error, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell,
     PrunedBranchCell, ResultExt,
 };
-
-use super::{
-    args::{r#as::CellSerializeAsWithArgs, CellSerializeWithArgs},
-    r#as::CellSerializeAs,
-    CellSerialize,
-};
+use std::sync::Arc;
 
 type CellBitWriter = LimitWriter<BitVec<u8, Msb0>>;
 
@@ -195,7 +194,7 @@ impl CellBuilder {
         self.ensure_reference()?;
         let mut builder = Self::new();
         builder.store_as::<T, As>(value)?;
-        self.references.push(builder.into_cell().into());
+        self.references.push(builder.into_cell()?.into());
         Ok(self)
     }
 
@@ -211,15 +210,14 @@ impl CellBuilder {
         self.ensure_reference()?;
         let mut builder = Self::new();
         builder.store_as_with::<T, As>(value, args)?;
-        self.references.push(builder.into_cell().into());
+        self.references.push(builder.into_cell()?.into());
         Ok(self)
     }
 
     /// Convert builder to [`Cell`]
     #[inline]
-    #[must_use]
-    pub fn into_cell(self) -> Cell {
-        match self.r#type.unwrap_or_default() {
+    pub fn into_cell(self) -> Result<Cell, CellBuilderError> {
+        Ok(match self.r#type.unwrap_or_default() {
             CellType::Ordinary => Cell::Ordinary(OrdinaryCell {
                 data: self.data.into_inner(),
                 references: self.references,
@@ -227,18 +225,40 @@ impl CellBuilder {
             CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell {
                 data: self.data.into_inner(),
             }),
-            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell {
-                data: self.data.into_inner(),
-            }),
-            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell {
-                data: self.data.into_inner(),
-                references: self.references,
-            }),
+            CellType::LibraryReference => {
+                if self.data.len() != 256 {
+                    return Err(Error::custom("library reference must be 256 bits long"));
+                }
+
+                Cell::LibraryReference(LibraryReferenceCell::from_bitslice(
+                    self.data.into_inner().as_bitslice(),
+                ))
+            }
+            CellType::MerkleProof => {
+                if self.references.len() != 1 {
+                    return Err(Error::custom(
+                        "merkle proof must have exactly one reference",
+                    ));
+                }
+
+                if self.data.len() != 272 {
+                    return Err(Error::custom("merkle proof must be 272 bits long"));
+                }
+
+                let reference = self.references.first().ok_or(CellParserError::custom(
+                    "merkle proof must have exactly one reference",
+                ))?;
+
+                Cell::MerkleProof(MerkleProofCell::from_bitslice(
+                    self.data.into_inner().as_bitslice(),
+                    [reference.clone()],
+                ))
+            }
             CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
                 data: self.data.into_inner(),
                 references: self.references,
             }),
-        }
+        })
     }
 }
 

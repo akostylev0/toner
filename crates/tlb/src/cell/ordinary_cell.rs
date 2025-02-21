@@ -8,6 +8,7 @@ use bitvec::prelude::BitVec;
 use sha2::{Digest, Sha256};
 use std::ops::{BitOr, Deref};
 use std::sync::Arc;
+use bitvec::slice::BitSlice;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct OrdinaryCell {
@@ -22,7 +23,7 @@ impl CellBehavior for OrdinaryCell {
     }
 
     #[inline]
-    fn data(&self) -> &BitVec<u8, Msb0> {
+    fn data(&self) -> &BitSlice<u8, Msb0> {
         self.data.as_ref()
     }
 

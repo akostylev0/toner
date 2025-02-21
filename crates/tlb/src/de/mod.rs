@@ -5,11 +5,17 @@ mod parser;
 
 pub use self::parser::*;
 
+use crate::cell_type::CellType;
+use crate::{
+    bits::de::BitReaderExt,
+    either::Either,
+    r#as::{FromInto, Same},
+    Cell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell,
+    ResultExt,
+};
 use core::mem::MaybeUninit;
 use std::{mem, rc::Rc, sync::Arc};
-
-use crate::cell_type::CellType;
-use crate::{bits::de::BitReaderExt, either::Either, r#as::{FromInto, Same}, Cell, LibraryReferenceCell, MerkleProofCell, MerkleUpdateCell, OrdinaryCell, PrunedBranchCell, ResultExt};
+use tlbits::Error;
 
 /// A type that can be **de**serialized from [`CellParser`].
 pub trait CellDeserialize<'de>: Sized {
@@ -142,20 +148,47 @@ impl<'de> CellDeserialize<'de> for Cell {
                 data: mem::take(&mut parser.data).to_bitvec(),
                 references: mem::take(&mut parser.references).to_vec(),
             }),
-            CellType::LibraryReference => Cell::LibraryReference(LibraryReferenceCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-            }),
+            CellType::LibraryReference => {
+                if parser.data.len() != 256 {
+                    return Err(CellParserError::custom(
+                        "library reference must have 256 bits",
+                    ));
+                }
+
+                if parser.references.len() != 0 {
+                    return Err(CellParserError::custom(
+                        "library reference must have no references",
+                    ));
+                }
+
+                let data = mem::take(&mut parser.data);
+
+                Cell::LibraryReference(LibraryReferenceCell::from_bitslice(data))
+            }
             CellType::PrunedBranch => Cell::PrunedBranch(PrunedBranchCell {
                 data: mem::take(&mut parser.data).to_bitvec(),
             }),
-            CellType::MerkleProof => Cell::MerkleProof(MerkleProofCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-                references: mem::take(&mut parser.references).to_vec(),
-            }),
+            CellType::MerkleProof => {
+                if parser.data.len() != 272 {
+                    return Err(CellParserError::custom("merkle proof must have 272 bits"));
+                }
+                if parser.references.len() != 1 {
+                    return Err(CellParserError::custom(
+                        "merkle proof must have exactly one reference",
+                    ));
+                }
+
+                let data = mem::take(&mut parser.data);
+                let references = mem::take(&mut parser.references).first().cloned().ok_or(
+                    CellParserError::custom("merkle proof must have exactly one reference"),
+                )?;
+
+                Cell::MerkleProof(MerkleProofCell::from_bitslice(data, [references]))
+            }
             CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
                 data: mem::take(&mut parser.data).to_bitvec(),
                 references: mem::take(&mut parser.references).to_vec(),
-            })
+            }),
         };
 
         parser.ensure_empty()?;

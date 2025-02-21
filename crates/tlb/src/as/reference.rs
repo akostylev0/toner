@@ -96,7 +96,7 @@ where
     ) -> Result<(), CellBuilderError> {
         let mut b = Cell::builder();
         As::store_as_with(source, &mut b, args)?;
-        let cell = b.into_cell();
+        let cell = b.into_cell()?;
         builder.store_as::<_, Either<Same, Ref>>(
             if cell.len() <= builder.capacity_left() {
                 Either::Left
