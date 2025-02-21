@@ -169,7 +169,7 @@ impl<'de> CellDeserialize<'de> for Cell {
                 data: mem::take(&mut parser.data).to_bitvec(),
             }),
             CellType::MerkleProof => {
-                if parser.data.len() != 272 {
+                if parser.data.len() != 256 + 16 {
                     return Err(CellParserError::custom("merkle proof must have 272 bits"));
                 }
                 if parser.references.len() != 1 {
@@ -179,16 +179,31 @@ impl<'de> CellDeserialize<'de> for Cell {
                 }
 
                 let data = mem::take(&mut parser.data);
-                let references = mem::take(&mut parser.references).first().cloned().ok_or(
-                    CellParserError::custom("merkle proof must have exactly one reference"),
-                )?;
+                let references = mem::take(&mut parser.references);
 
-                Cell::MerkleProof(MerkleProofCell::from_bitslice(data, [references]))
+                Cell::MerkleProof(MerkleProofCell::from_bitslice(
+                    data,
+                    [references[0].clone()],
+                ))
             }
-            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
-                data: mem::take(&mut parser.data).to_bitvec(),
-                references: mem::take(&mut parser.references).to_vec(),
-            }),
+            CellType::MerkleUpdate => {
+                if parser.data.len() != 256 + 256 + 16 + 16 {
+                    return Err(CellParserError::custom("merkle update must have 544 bits"));
+                }
+                if parser.references.len() != 2 {
+                    return Err(CellParserError::custom(
+                        "merkle update must have exactly two references",
+                    ));
+                }
+
+                let data = mem::take(&mut parser.data);
+                let references = mem::take(&mut parser.references);
+
+                Cell::MerkleUpdate(MerkleUpdateCell::from_bitslice(
+                    data,
+                    [references[0].clone(), references[1].clone()],
+                ))
+            }
         };
 
         parser.ensure_empty()?;

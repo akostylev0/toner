@@ -3,18 +3,26 @@ use crate::cell_type::CellType;
 use crate::level_mask::LevelMask;
 use crate::Cell;
 use crate::HigherHash;
+use bitvec::array::BitArray;
 use bitvec::order::Msb0;
-use bitvec::prelude::BitVec;
-use sha2::{Digest, Sha256};
-use std::cmp::max;
-use std::ops::{BitOr, Deref};
-use std::sync::Arc;
 use bitvec::slice::BitSlice;
+use sha2::{Digest, Sha256};
+use std::ops::Deref;
+use std::sync::Arc;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct MerkleUpdateCell {
-    pub data: BitVec<u8, Msb0>,
-    pub references: Vec<Arc<Cell>>,
+    pub data: BitArray<[u8; 68], Msb0>,
+    pub references: [Arc<Cell>; 2],
+}
+
+impl MerkleUpdateCell {
+    pub fn from_bitslice(bits: &BitSlice<u8, Msb0>, references: [Arc<Cell>; 2]) -> Self {
+        let mut data = BitArray::default();
+        data.copy_from_bitslice(bits);
+
+        Self { data, references }
+    }
 }
 
 impl CellBehavior for MerkleUpdateCell {
@@ -35,15 +43,14 @@ impl CellBehavior for MerkleUpdateCell {
 
     #[inline]
     fn level(&self) -> u8 {
-        max(
-            self.references
-                .iter()
-                .map(|r| r.level() - 1)
-                .max()
-                .unwrap_or(0),
-            0,
-        )
+        self.references
+            .iter()
+            .map(|r| r.level() - 1)
+            .max()
+            .unwrap_or(0)
+            .max(0)
     }
+
     #[inline]
     fn max_depth(&self) -> u16 {
         self.references
@@ -59,13 +66,7 @@ impl CellBehavior for MerkleUpdateCell {
 impl HigherHash for MerkleUpdateCell {
     #[inline]
     fn level_mask(&self) -> LevelMask {
-        self.references
-            .iter()
-            .map(Deref::deref)
-            .map(HigherHash::level_mask)
-            .reduce(BitOr::bitor)
-            .map(|l| l.shift(1))
-            .expect("merkle update cell must have exactly two references")
+        (self.references[0].level_mask() | self.references[1].level_mask()).shift(1)
     }
 
     #[inline]

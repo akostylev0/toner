@@ -310,31 +310,36 @@ impl BitUnpack for BagOfCells {
                         })
                     }
                     CellType::MerkleProof => {
+                        if raw_cell.data.len() != 272 {
+                            return Err(Error::custom("merkle proof must have 272 bits"));
+                        }
                         if references.len() != 1 {
                             return Err(Error::custom("merkle proof as exactly one reference"));
                         }
 
-                        if raw_cell.data.len() != 272 {
-                            return Err(Error::custom("merkle proof must have 272 bits"));
-                        }
-
-                        let reference = references
-                            .first()
-                            .ok_or(Error::custom("merkle proof as exactly one reference"))?;
+                        let data = raw_cell.data;
+                        let references = references;
 
                         Cell::MerkleProof(MerkleProofCell::from_bitslice(
-                            raw_cell.data.as_bitslice(),
-                            [reference.clone()],
+                            data.as_bitslice(),
+                            [references[0].clone()],
                         ))
                     }
                     CellType::MerkleUpdate => {
+                        if raw_cell.data.len() != 272 {
+                            return Err(Error::custom("merkle proof must have 272 bits"));
+                        }
                         if references.len() != 2 {
                             return Err(Error::custom("merkle update as exactly two references"));
                         }
-                        Cell::MerkleUpdate(MerkleUpdateCell {
-                            data: raw_cell.data,
-                            references,
-                        })
+
+                        let data = raw_cell.data;
+                        let references = references;
+
+                        Cell::MerkleUpdate(MerkleUpdateCell::from_bitslice(
+                            data.as_bitslice(),
+                            [references[0].clone(), references[1].clone()],
+                        ))
                     }
                 })
             });

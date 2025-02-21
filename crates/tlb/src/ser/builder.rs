@@ -235,29 +235,40 @@ impl CellBuilder {
                 ))
             }
             CellType::MerkleProof => {
+                if self.data.len() != 272 {
+                    return Err(Error::custom("merkle proof must be 272 bits long"));
+                }
                 if self.references.len() != 1 {
                     return Err(Error::custom(
                         "merkle proof must have exactly one reference",
                     ));
                 }
 
-                if self.data.len() != 272 {
-                    return Err(Error::custom("merkle proof must be 272 bits long"));
-                }
-
-                let reference = self.references.first().ok_or(CellParserError::custom(
-                    "merkle proof must have exactly one reference",
-                ))?;
+                let data = self.data.into_inner();
+                let references = self.references;
 
                 Cell::MerkleProof(MerkleProofCell::from_bitslice(
-                    self.data.into_inner().as_bitslice(),
-                    [reference.clone()],
+                    data.as_bitslice(),
+                    [references[0].clone()],
                 ))
             }
-            CellType::MerkleUpdate => Cell::MerkleUpdate(MerkleUpdateCell {
-                data: self.data.into_inner(),
-                references: self.references,
-            }),
+            CellType::MerkleUpdate => {
+                if self.data.len() != 544 {
+                    return Err(Error::custom("merkle update must be 544 bits long"));
+                }
+                if self.references.len() != 2 {
+                    return Err(Error::custom(
+                        "merkle update must have exactly two references",
+                    ));
+                }
+                let data = self.data.into_inner();
+                let references = self.references;
+
+                Cell::MerkleUpdate(MerkleUpdateCell::from_bitslice(
+                    data.as_bitslice(),
+                    [references[0].clone(), references[1].clone()],
+                ))
+            }
         })
     }
 }
