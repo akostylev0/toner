@@ -1,5 +1,4 @@
-use std::iter::once;
-
+use super::hm_label::HmLabel;
 use crate::{
     Context, Error,
     r#as::{ParseFully, Ref, Same},
@@ -12,8 +11,6 @@ use crate::{
     ser::{CellBuilder, CellBuilderError, CellSerialize, CellSerializeAs},
 };
 use impl_tools::autoimpl;
-
-use super::hm_label::HmLabel;
 
 /// [`HashmapAugE n X Y`](https://docs.ton.org/develop/data-formats/tl-b-types#hashmapauge).  
 /// When `E = ()` it is equivalent to [`HashmapE n X`](https://docs.ton.org/develop/data-formats/tl-b-types#hashmap)
@@ -150,193 +147,13 @@ impl<T, E> HashmapE<T, E> {
 
     /// Returns an iterator over `(Key, &T)` pairs in key order
     #[inline]
-    pub fn iter(&self) -> HashmapIter<'_, T, E> {
+    pub fn iter(&self) -> super::iter::HashmapIter<'_, T, E> {
         self.into_iter()
     }
 
     #[inline]
-    pub fn iter_mut(&mut self) -> HashmapIterMut<'_, T, E> {
+    pub fn iter_mut(&mut self) -> super::iter::HashmapIterMut<'_, T, E> {
         self.into_iter()
-    }
-}
-
-/// Iterator over `(Key, &T)` pairs of a [`HashmapE`] in key order.
-///
-/// Created by [`HashmapE::iter`].
-pub struct HashmapIter<'a, T, E = ()> {
-    stack: Vec<(Key, &'a Hashmap<T, E>)>,
-}
-
-impl<'a, T, E> Iterator for HashmapIter<'a, T, E> {
-    type Item = (Key, &'a T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (mut key, hashmap) = self.stack.pop()?;
-            key.extend_from_bitslice(&hashmap.prefix);
-
-            match &hashmap.node.node {
-                HashmapNode::Leaf(value) => return Some((key, value)),
-                HashmapNode::Fork([left, right]) => {
-                    let mut right_key = key.clone();
-                    right_key.push(true);
-                    self.stack.push((right_key, right));
-
-                    let mut left_key = key;
-                    left_key.push(false);
-                    self.stack.push((left_key, left));
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let lower = self.stack.len();
-        (lower, None)
-    }
-}
-
-impl<'a, T, E> IntoIterator for &'a HashmapE<T, E> {
-    type Item = (Key, &'a T);
-    type IntoIter = HashmapIter<'a, T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        HashmapIter {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
-        }
-    }
-}
-
-impl<'a, T, E> IntoIterator for &'a HashmapAugE<T, E> {
-    type Item = (Key, &'a T);
-    type IntoIter = HashmapIter<'a, T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.m.iter()
-    }
-}
-
-pub struct HashmapIterMut<'a, T, E = ()> {
-    stack: Vec<(Key, &'a mut Hashmap<T, E>)>,
-}
-
-impl<'a, T, E> Iterator for HashmapIterMut<'a, T, E> {
-    type Item = (Key, &'a mut T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (mut key, hashmap) = self.stack.pop()?;
-            key.extend_from_bitslice(&hashmap.prefix);
-
-            match &mut hashmap.node.node {
-                HashmapNode::Leaf(value) => return Some((key, value)),
-                HashmapNode::Fork([left, right]) => {
-                    let mut right_key = key.clone();
-                    right_key.push(true);
-                    self.stack.push((right_key, right));
-
-                    let mut left_key = key;
-                    left_key.push(false);
-                    self.stack.push((left_key, left));
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let lower = self.stack.len();
-        (lower, None)
-    }
-}
-
-impl<'a, T, E> IntoIterator for &'a mut HashmapE<T, E> {
-    type Item = (Key, &'a mut T);
-    type IntoIter = HashmapIterMut<'a, T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        HashmapIterMut {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
-        }
-    }
-}
-
-impl<'a, T, E> IntoIterator for &'a mut HashmapAugE<T, E> {
-    type Item = (Key, &'a mut T);
-    type IntoIter = HashmapIterMut<'a, T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.m.iter_mut()
-    }
-}
-
-pub struct HashmapIntoIter<T, E = ()> {
-    stack: Vec<(Key, Hashmap<T, E>)>,
-}
-
-impl<T, E> Iterator for HashmapIntoIter<T, E> {
-    type Item = (Key, T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (mut key, hashmap) = self.stack.pop()?;
-            key.extend_from_bitslice(&hashmap.prefix);
-
-            match hashmap.node.node {
-                HashmapNode::Leaf(value) => return Some((key, value)),
-                HashmapNode::Fork([left, right]) => {
-                    let mut right_key = key.clone();
-                    right_key.push(true);
-                    self.stack.push((right_key, *right));
-
-                    let mut left_key = key;
-                    left_key.push(false);
-                    self.stack.push((left_key, *left));
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let lower = self.stack.len();
-        (lower, None)
-    }
-}
-
-impl<T, E> IntoIterator for HashmapE<T, E> {
-    type Item = (Key, T);
-    type IntoIter = HashmapIntoIter<T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        HashmapIntoIter {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
-        }
-    }
-}
-
-impl<T, E> IntoIterator for HashmapAugE<T, E> {
-    type Item = (Key, T);
-    type IntoIter = HashmapIntoIter<T, E>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.m.into_iter()
     }
 }
 
@@ -425,31 +242,6 @@ where
     #[inline]
     fn parse(parser: &mut CellParser<'de>, args: Self::Args) -> Result<Self, CellParserError<'de>> {
         parser.parse_as::<_, Same>(args)
-    }
-}
-
-impl<'de, T, As, C, E> CellDeserializeAs<'de, C> for HashmapE<As, E>
-where
-    C: IntoIterator<Item = (Key, T)> + Extend<(Key, T)> + Default, // IntoIterator used as type constraint for T
-    As: CellDeserializeAs<'de, T>,
-    As::Args: Clone,
-{
-    // (n, As::Args)
-    type Args = (u32, As::Args);
-
-    #[inline]
-    fn parse_as(
-        parser: &mut CellParser<'de>,
-        (n, node_args): Self::Args,
-    ) -> Result<C, CellParserError<'de>> {
-        Ok(match parser.unpack(())? {
-            // hme_empty$0
-            false => C::default(),
-            // hme_root$1
-            true => parser
-                // root:^(Hashmap n X)
-                .parse_as::<_, Ref<ParseFully<Hashmap<As, ()>>>>((n, node_args))?,
-        })
     }
 }
 
@@ -568,90 +360,6 @@ where
 }
 
 pub type Key = BitVec<u8, Msb0>;
-impl<'de, T, As, C> CellDeserializeAs<'de, C> for Hashmap<As>
-where
-    C: IntoIterator<Item = (Key, T)> + Extend<(Key, T)> + Default, // IntoIterator used as type constraint for T
-    As: CellDeserializeAs<'de, T>,
-    As::Args: Clone,
-{
-    /// (n, As::Args)
-    type Args = (u32, As::Args);
-
-    #[inline]
-    fn parse_as(
-        parser: &mut CellParser<'de>,
-        (n, args): Self::Args,
-    ) -> Result<C, CellParserError<'de>> {
-        let mut output = C::default();
-        let mut stack: Vec<(u32, Key, CellParser<'de>)> = Vec::new();
-
-        #[inline]
-        fn parse<'de, T, As, C>(
-            parser: &mut CellParser<'de>,
-            stack: &mut Vec<(u32, Key, CellParser<'de>)>,
-            output: &mut C,
-            n: u32,
-            mut prefix: Key,
-            args: As::Args,
-        ) -> Result<(), CellParserError<'de>>
-        where
-            C: Extend<(Key, T)>,
-            As: CellDeserializeAs<'de, T>,
-        {
-            // label:(HmLabel ~l n)
-            let next_prefix: BitVec<u8, Msb0> =
-                parser.unpack_as::<_, HmLabel>(n).context("label")?;
-            // {n = (~m) + l}
-            let m = n - next_prefix.len() as u32;
-
-            prefix.extend_from_bitslice(&next_prefix);
-
-            match m {
-                // bt_leaf$0
-                0 => output.extend(once((prefix, parser.parse_as::<_, As>(args)?))),
-                // bt_fork$1
-                1.. => stack.extend(
-                    parser
-                        .parse_as::<_, [Ref; 2]>(())?
-                        .into_iter()
-                        .enumerate()
-                        // HashmapNode (n + 1)
-                        .map(|(next_prefix, parser)| {
-                            let mut prefix = prefix.clone();
-                            prefix.push(next_prefix != 0);
-
-                            (m - 1, prefix, parser)
-                        })
-                        // inverse ordering
-                        .rev(),
-                ),
-            }
-            Ok(())
-        }
-
-        parse::<_, As, C>(
-            parser,
-            &mut stack,
-            &mut output,
-            n,
-            Key::default(),
-            args.clone(),
-        )?;
-
-        while let Some((n, prefix, mut parser)) = stack.pop() {
-            parse::<_, As, C>(
-                &mut parser,
-                &mut stack,
-                &mut output,
-                n,
-                prefix,
-                args.clone(),
-            )?;
-        }
-
-        Ok(output)
-    }
-}
 
 /// [`HashmapNode n X`](https://docs.ton.org/develop/data-formats/tl-b-types#hashmap)  
 /// Type parameter `E` is optional and stands for `extra`, so it can be reused
@@ -899,7 +607,9 @@ mod tests {
     fn hashmape_parse_as_std_hashmap() {
         let cell = given_cell_from_example();
 
-        let hm: HashMap<Key, u16> = cell.parse_fully_as::<_, HashmapE<Data>>((8, ())).unwrap();
+        let hm: HashMap<Key, u16> = cell
+            .parse_fully_as::<_, HashmapE<Data>>((8, (), 8usize))
+            .unwrap();
 
         assert_eq!(hm.len(), 3);
         // 1 -> 777
@@ -914,15 +624,17 @@ mod tests {
     fn hashmape_parse_as_std_btreemap() {
         let cell = given_cell_from_example();
 
-        let hm: BTreeMap<Key, u16> = cell.parse_fully_as::<_, HashmapE<Data>>((8, ())).unwrap();
+        let hm: BTreeMap<u8, u16> = cell
+            .parse_fully_as::<_, HashmapE<Data>>((8, (), ()))
+            .unwrap();
 
         assert_eq!(hm.len(), 3);
         // 1 -> 777
-        assert_eq!(hm.get(1u8.to_be_bytes().as_bits()), Some(&777));
+        assert_eq!(hm.get(&1), Some(&777));
         // 17 -> 111
-        assert_eq!(hm.get(17u8.to_be_bytes().as_bits()), Some(&111));
+        assert_eq!(hm.get(&17), Some(&111));
         // 128 -> 777
-        assert_eq!(hm.get(128u8.to_be_bytes().as_bits()), Some(&777));
+        assert_eq!(hm.get(&128u8), Some(&777));
     }
 
     #[test]

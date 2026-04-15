@@ -31,6 +31,10 @@ pub trait BitUnpack<'de>: Sized {
         R: BitReader<'de> + ?Sized;
 }
 
+/// Owned version of [`BitUnpack`]
+pub trait BitUnpackOwned: for<'de> BitUnpack<'de> {}
+impl<T> BitUnpackOwned for T where T: for<'de> BitUnpack<'de> + ?Sized {}
+
 /// **De**serialize the value from [`BitSlice`]
 #[inline]
 pub fn unpack<'de, T>(mut bits: &'de BitSlice<u8, Msb0>, args: T::Args) -> Result<T, StringError>
