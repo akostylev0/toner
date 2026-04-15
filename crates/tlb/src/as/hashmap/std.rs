@@ -1,4 +1,4 @@
-use super::aug::{Hashmap, HashmapAugE, HashmapE, Key};
+use super::aug::{Hashmap, HashmapAugE, HashmapE};
 use super::hm_label::HmLabel;
 use crate::{
     Context,
@@ -9,6 +9,7 @@ use crate::{
     },
     de::{CellDeserializeAs, CellParser, CellParserError},
 };
+use bitvec::bitvec;
 use tlbits::adapters::Owned;
 use tlbits::de::BitUnpack;
 
@@ -17,10 +18,9 @@ where
     K: BitUnpack<'de>,
     As: CellDeserializeAs<'de, T>,
 {
-    stack: Vec<(u32, Key, CellParser<'de>)>,
+    stack: Vec<(u32, BitVec<u8, Msb0>, CellParser<'de>)>,
     value_args: As::Args,
     key_args: K::Args,
-    _phantom: std::marker::PhantomData<fn() -> (K, T)>,
 }
 
 impl<'de, K, T, As> HashmapParserIter<'de, K, T, As>
@@ -40,9 +40,8 @@ where
             stack: Vec::new(),
             value_args,
             key_args,
-            _phantom: std::marker::PhantomData,
         };
-        iter.descend(parser, n, Key::default())?;
+        iter.descend(parser, n, bitvec![u8, Msb0;])?;
         Ok(iter)
     }
 
@@ -50,7 +49,7 @@ where
         &mut self,
         parser: &mut CellParser<'de>,
         n: u32,
-        mut prefix: Key,
+        mut prefix: BitVec<u8, Msb0>,
     ) -> Result<Option<(K, T)>, CellParserError<'de>> {
         // label:(HmLabel ~l n)
         let next_prefix: BitVec<u8, Msb0> = parser.unpack_as::<_, HmLabel>(n).context("label")?;
@@ -60,14 +59,14 @@ where
         prefix.extend_from_bitslice(&next_prefix);
 
         match m {
-            // bt_leaf$0
+            // hmn_leaf#_
             0 => {
                 let value = parser.parse_as::<_, As>(self.value_args.clone())?;
                 let mut key_parser = Owned::new(prefix);
                 let key = key_parser.unpack(self.key_args.clone())?;
                 Ok(Some((key, value)))
             }
-            // bt_fork$1
+            // hmn_fork#_
             1.. => {
                 self.stack.extend(
                     parser

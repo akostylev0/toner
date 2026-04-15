@@ -294,6 +294,18 @@ impl<T, E> Hashmap<T, E> {
     pub fn get_mut(&mut self, key: impl AsRef<BitSlice<u8, Msb0>>) -> Option<&mut T> {
         self.node.get_mut(key.as_ref().strip_prefix(&self.prefix)?)
     }
+
+    /// Returns an iterator over `(Key, &T)` pairs in key order
+    #[inline]
+    pub fn iter(&self) -> super::iter::HashmapIter<'_, T, E> {
+        self.into_iter()
+    }
+
+    /// Returns a mutable iterator over `(Key, &mut T)` pairs in key order
+    #[inline]
+    pub fn iter_mut(&mut self) -> super::iter::HashmapIterMut<'_, T, E> {
+        self.into_iter()
+    }
 }
 
 impl<T, AsT, E, AsE> CellSerializeAs<Hashmap<T, E>> for Hashmap<AsT, AsE>
@@ -358,8 +370,6 @@ where
         })
     }
 }
-
-pub type Key = BitVec<u8, Msb0>;
 
 /// [`HashmapNode n X`](https://docs.ton.org/develop/data-formats/tl-b-types#hashmap)  
 /// Type parameter `E` is optional and stands for `extra`, so it can be reused
@@ -607,7 +617,7 @@ mod tests {
     fn hashmape_parse_as_std_hashmap() {
         let cell = given_cell_from_example();
 
-        let hm: HashMap<Key, u16> = cell
+        let hm: HashMap<BitVec<u8, Msb0>, u16> = cell
             .parse_fully_as::<_, HashmapE<Data>>((8, (), 8usize))
             .unwrap();
 
@@ -645,7 +655,7 @@ mod tests {
             .parse_fully_as::<_, HashmapE<Data, Same>>((8, (), ()))
             .unwrap();
 
-        let entries: Vec<(Key, &u16)> = hm.iter().collect();
+        let entries: Vec<(_, &u16)> = hm.iter().collect();
         assert_eq!(entries.len(), 3);
 
         // keys should be in order: 1, 17, 128
@@ -673,7 +683,7 @@ mod tests {
             .parse_fully_as::<_, HashmapE<Data, Same>>((8, (), ()))
             .unwrap();
 
-        let entries: Vec<(Key, &u16)> = (&hm).into_iter().collect();
+        let entries: Vec<(_, &u16)> = (&hm).into_iter().collect();
         assert_eq!(entries.len(), 3);
     }
 
@@ -702,7 +712,7 @@ mod tests {
             .parse_fully_as::<_, HashmapE<Data, Same>>((8, (), ()))
             .unwrap();
 
-        let entries: Vec<(Key, u16)> = hm.into_iter().collect();
+        let entries: Vec<(_, u16)> = hm.into_iter().collect();
         assert_eq!(entries.len(), 3);
 
         assert_eq!(entries[0].0, 1u8.to_be_bytes().as_bits::<Msb0>());

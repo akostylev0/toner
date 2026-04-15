@@ -1,14 +1,17 @@
-use super::aug::{Hashmap, HashmapAugE, HashmapE, HashmapNode, Key};
+use super::aug::{Hashmap, HashmapAugE, HashmapE, HashmapNode};
+use bitvec::bitvec;
+use bitvec::order::Msb0;
+use bitvec::prelude::BitVec;
 
 /// Iterator over `(Key, &T)` pairs of a [`HashmapE`] in key order.
 ///
 /// Created by [`HashmapE::iter`].
 pub struct HashmapIter<'a, T, E = ()> {
-    stack: Vec<(Key, &'a Hashmap<T, E>)>,
+    stack: Vec<(BitVec<u8, Msb0>, &'a Hashmap<T, E>)>,
 }
 
 impl<'a, T, E> Iterator for HashmapIter<'a, T, E> {
-    type Item = (Key, &'a T);
+    type Item = (BitVec<u8, Msb0>, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -37,23 +40,33 @@ impl<'a, T, E> Iterator for HashmapIter<'a, T, E> {
     }
 }
 
-impl<'a, T, E> IntoIterator for &'a HashmapE<T, E> {
-    type Item = (Key, &'a T);
+impl<'a, T, E> IntoIterator for &'a Hashmap<T, E> {
+    type Item = (BitVec<u8, Msb0>, &'a T);
     type IntoIter = HashmapIter<'a, T, E>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         HashmapIter {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
+            stack: vec![(bitvec![u8, Msb0;], self)],
+        }
+    }
+}
+
+impl<'a, T, E> IntoIterator for &'a HashmapE<T, E> {
+    type Item = (BitVec<u8, Msb0>, &'a T);
+    type IntoIter = HashmapIter<'a, T, E>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            HashmapE::Empty => HashmapIter { stack: Vec::new() },
+            HashmapE::Root(root) => root.into_iter(),
         }
     }
 }
 
 impl<'a, T, E> IntoIterator for &'a HashmapAugE<T, E> {
-    type Item = (Key, &'a T);
+    type Item = (BitVec<u8, Msb0>, &'a T);
     type IntoIter = HashmapIter<'a, T, E>;
 
     #[inline]
@@ -63,11 +76,11 @@ impl<'a, T, E> IntoIterator for &'a HashmapAugE<T, E> {
 }
 
 pub struct HashmapIterMut<'a, T, E = ()> {
-    stack: Vec<(Key, &'a mut Hashmap<T, E>)>,
+    stack: Vec<(BitVec<u8, Msb0>, &'a mut Hashmap<T, E>)>,
 }
 
 impl<'a, T, E> Iterator for HashmapIterMut<'a, T, E> {
-    type Item = (Key, &'a mut T);
+    type Item = (BitVec<u8, Msb0>, &'a mut T);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -96,23 +109,33 @@ impl<'a, T, E> Iterator for HashmapIterMut<'a, T, E> {
     }
 }
 
-impl<'a, T, E> IntoIterator for &'a mut HashmapE<T, E> {
-    type Item = (Key, &'a mut T);
+impl<'a, T, E> IntoIterator for &'a mut Hashmap<T, E> {
+    type Item = (BitVec<u8, Msb0>, &'a mut T);
     type IntoIter = HashmapIterMut<'a, T, E>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         HashmapIterMut {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
+            stack: vec![(bitvec![u8, Msb0;], self)],
+        }
+    }
+}
+
+impl<'a, T, E> IntoIterator for &'a mut HashmapE<T, E> {
+    type Item = (BitVec<u8, Msb0>, &'a mut T);
+    type IntoIter = HashmapIterMut<'a, T, E>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            HashmapE::Empty => HashmapIterMut { stack: Vec::new() },
+            HashmapE::Root(root) => root.into_iter(),
         }
     }
 }
 
 impl<'a, T, E> IntoIterator for &'a mut HashmapAugE<T, E> {
-    type Item = (Key, &'a mut T);
+    type Item = (BitVec<u8, Msb0>, &'a mut T);
     type IntoIter = HashmapIterMut<'a, T, E>;
 
     #[inline]
@@ -122,11 +145,11 @@ impl<'a, T, E> IntoIterator for &'a mut HashmapAugE<T, E> {
 }
 
 pub struct HashmapIntoIter<T, E = ()> {
-    stack: Vec<(Key, Hashmap<T, E>)>,
+    stack: Vec<(BitVec<u8, Msb0>, Hashmap<T, E>)>,
 }
 
 impl<T, E> Iterator for HashmapIntoIter<T, E> {
-    type Item = (Key, T);
+    type Item = (BitVec<u8, Msb0>, T);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -155,23 +178,33 @@ impl<T, E> Iterator for HashmapIntoIter<T, E> {
     }
 }
 
-impl<T, E> IntoIterator for HashmapE<T, E> {
-    type Item = (Key, T);
+impl<T, E> IntoIterator for Hashmap<T, E> {
+    type Item = (BitVec<u8, Msb0>, T);
     type IntoIter = HashmapIntoIter<T, E>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         HashmapIntoIter {
-            stack: match self {
-                HashmapE::Empty => Vec::new(),
-                HashmapE::Root(root) => vec![(Key::new(), root)],
-            },
+            stack: vec![(bitvec![u8, Msb0;], self)],
+        }
+    }
+}
+
+impl<T, E> IntoIterator for HashmapE<T, E> {
+    type Item = (BitVec<u8, Msb0>, T);
+    type IntoIter = HashmapIntoIter<T, E>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            HashmapE::Empty => HashmapIntoIter { stack: Vec::new() },
+            HashmapE::Root(root) => root.into_iter(),
         }
     }
 }
 
 impl<T, E> IntoIterator for HashmapAugE<T, E> {
-    type Item = (Key, T);
+    type Item = (BitVec<u8, Msb0>, T);
     type IntoIter = HashmapIntoIter<T, E>;
 
     #[inline]
