@@ -3,7 +3,7 @@ use bitvec::bitvec;
 use bitvec::order::Msb0;
 use bitvec::prelude::BitVec;
 
-/// Iterator over `(Key, &T)` pairs of a [`HashmapE`] in key order.
+/// Iterator over `(BitVec<u8, Msb0>, &T)` pairs of a [`HashmapE`] in key order.
 ///
 /// Created by [`HashmapE::iter`].
 pub struct HashmapIter<'a, T, E = ()> {
