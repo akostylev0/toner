@@ -30,11 +30,6 @@ pub trait BitUnpackAs<'de, T> {
     where
         R: BitReader<'de> + ?Sized;
 }
-
-/// Owned version of [`BitUnpackAs`]
-pub trait BitUnpackAsOwned<T>: for<'de> BitUnpackAs<'de, T> {}
-impl<T, As> BitUnpackAsOwned<As> for T where T: for<'de> BitUnpackAs<'de, As> + ?Sized {}
-
 /// **De**serialize value from [`BitSlice`] with args using an adapter
 #[inline]
 pub fn unpack_as<'de, T, As>(
