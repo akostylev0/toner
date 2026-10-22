@@ -380,6 +380,93 @@ impl<'de> BitUnpack<'de> for MsgAddressTag {
     }
 }
 
+/// [MsgAddressExt](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L100-L101)
+/// ```tlb
+/// addr_none$00 = MsgAddressExt;
+/// addr_extern$01 len:(## 9) external_address:(bits len) = MsgAddressExt;
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub enum MsgAddressExt {
+    /// ```tlb
+    /// addr_none$00
+    /// ```
+    #[default]
+    None,
+    /// ```tlb
+    /// addr_extern$01 len:(## 9) external_address:(bits len)
+    /// ```
+    Extern(BitVec<u8, Msb0>),
+}
+
+impl MsgAddressExt {
+    /// Returns whether this address is [`addr_none$00`](MsgAddressExt::None)
+    #[inline]
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
+impl BitPack for MsgAddressExt {
+    type Args = ();
+
+    #[inline]
+    fn pack<W>(&self, writer: &mut W, (): Self::Args) -> Result<(), W::Error>
+    where
+        W: BitWriter + ?Sized,
+    {
+        match self {
+            Self::None => {
+                writer.pack(MsgAddressTag::Null, ())?;
+            }
+            Self::Extern(external_address) => {
+                writer
+                    .pack(MsgAddressTag::Extern, ())?
+                    // len:(## 9) external_address:(bits len)
+                    .pack_as::<_, &VarLen<_, 9>>(external_address, ())?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'de> BitUnpack<'de> for MsgAddressExt {
+    type Args = ();
+
+    #[inline]
+    fn unpack<R>(reader: &mut R, (): Self::Args) -> Result<Self, R::Error>
+    where
+        R: BitReader<'de> + ?Sized,
+    {
+        match reader.unpack(())? {
+            MsgAddressTag::Null => Ok(Self::None),
+            // len:(## 9) external_address:(bits len)
+            MsgAddressTag::Extern => Ok(Self::Extern(reader.unpack_as::<_, VarLen<_, 9>>(())?)),
+            tag => Err(Error::custom(format!(
+                "unsupported MsgAddressExt tag: {tag}"
+            ))),
+        }
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+const _: () = {
+    use arbitrary::{Arbitrary, Result, Unstructured};
+
+    impl<'a> Arbitrary<'a> for MsgAddressExt {
+        fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
+            if !u.arbitrary::<bool>()? {
+                return Ok(Self::None);
+            }
+            let len = u.int_in_range(0..=(1usize << 9) - 1)?;
+            let mut bits = BitVec::with_capacity(len);
+            for _ in 0..len {
+                bits.push(u.arbitrary()?);
+            }
+            Ok(Self::Extern(bits))
+        }
+    }
+};
+
 /// ```tlb
 /// anycast_info$_ depth:(#<= 30) { depth >= 1 } rewrite_pfx:(bits depth) = Anycast;
 /// ```
