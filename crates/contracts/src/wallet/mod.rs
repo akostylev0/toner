@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use num_bigint::BigUint;
 use tlb_ton::{
-    Cell, MsgAddress,
+    Cell, MsgAddress, MsgAddressExt,
     action::SendMsgAction,
     bits::NoArgs,
     message::{CommonMsgInfo, ExternalInMsgInfo, Message},
@@ -192,7 +192,7 @@ where
     ) -> Message<V::ExternalMsgBody, Arc<Cell>, V::Data> {
         Message {
             info: CommonMsgInfo::ExternalIn(ExternalInMsgInfo {
-                src: MsgAddress::NULL,
+                src: MsgAddressExt::None,
                 dst: self.address(),
                 import_fee: BigUint::ZERO,
             }),

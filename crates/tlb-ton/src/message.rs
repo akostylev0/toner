@@ -14,7 +14,7 @@ use tlb::{
 };
 
 use crate::{
-    MsgAddress,
+    MsgAddress, MsgAddressExt,
     currency::{CurrencyCollection, ExtraCurrencyCollection, Grams},
     state_init::StateInit,
 };
@@ -283,7 +283,7 @@ impl<'de> CellDeserialize<'de> for InternalMsgInfo {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalInMsgInfo {
-    pub src: MsgAddress,
+    pub src: MsgAddressExt,
     pub dst: MsgAddress,
     pub import_fee: BigUint,
 }
@@ -296,7 +296,7 @@ impl BitPack for ExternalInMsgInfo {
         W: BitWriter + ?Sized,
     {
         writer
-            .pack(self.src, ())?
+            .pack(&self.src, ())?
             .pack(self.dst, ())?
             .pack_as::<_, &Grams>(&self.import_fee, ())?;
         Ok(())
@@ -327,7 +327,7 @@ impl<'de> BitUnpack<'de> for ExternalInMsgInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalOutMsgInfo {
     pub src: MsgAddress,
-    pub dst: MsgAddress,
+    pub dst: MsgAddressExt,
     pub created_lt: u64,
     pub created_at: u32,
 }
@@ -341,7 +341,7 @@ impl BitPack for ExternalOutMsgInfo {
     {
         writer
             .pack(self.src, ())?
-            .pack(self.dst, ())?
+            .pack(&self.dst, ())?
             .pack(self.created_lt, ())?
             .pack(self.created_at, ())?;
         Ok(())
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn external_in_msg_info_serde() {
         let info = CommonMsgInfo::ExternalIn(ExternalInMsgInfo {
-            src: MsgAddress::NULL,
+            src: MsgAddressExt::None,
             dst: MsgAddress::NULL,
             import_fee: BigUint::ZERO,
         });
@@ -431,10 +431,72 @@ mod tests {
     }
 
     #[test]
+    fn external_in_msg_info_with_extern_src_serde() {
+        use tlb::bits::bitvec::{order::Msb0, vec::BitVec};
+
+        let info = CommonMsgInfo::ExternalIn(ExternalInMsgInfo {
+            src: MsgAddressExt::Extern(BitVec::<u8, Msb0>::from_vec(
+                hex::decode("8C59E2FCA0093E1082EEB2596BCCF650").unwrap(),
+            )),
+            dst: MsgAddress::NULL,
+            import_fee: BigUint::from(12345u32),
+        });
+
+        let cell = info.to_cell(()).unwrap();
+        let got: CommonMsgInfo = cell.parse_fully(()).unwrap();
+
+        assert_eq!(got, info);
+    }
+
+    #[test]
+    fn parse_external_out_message() {
+        use base64::{Engine, engine::general_purpose::STANDARD};
+        use tlb::{
+            BagOfCells,
+            bits::bitvec::{order::Msb0, vec::BitVec},
+        };
+
+        // https://test-explorer.toncoin.org/transaction?account=0:1418cd80d28e24c3194a54b2a58c70fc6bab0abb9d5f092c0c576b3ce272ebf1&lt=104733983000003&hash=e08b025c566d667e425564785a3b3e7a280d7e3aec7911dbf3a433528e6b9477
+        let boc = STANDARD
+            .decode(
+                "te6ccgEBAgEAnAABn+AAoMZsBpRxJhjKUqWVLGOH411YVdzq+ElgYrtZ5xOXX4sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE1DAgAAAF9BR9pFxGraIztgAQCNTUMCAAEAABEigAjDstvIpEbol+8nYJDDye7NaZz06FkpNFsgKKBvI5egACAGRAjDCsAAAAAAAAAAAAAAZebwQTBMAAAAAAg=",
+            )
+            .unwrap();
+        let root = BagOfCells::deserialize(boc)
+            .unwrap()
+            .into_single_root()
+            .unwrap();
+
+        let msg: Message = root.parse_fully(()).unwrap();
+
+        let CommonMsgInfo::ExternalOut(info) = &msg.info else {
+            panic!("expected ext_out_msg_info, got: {:?}", msg.info);
+        };
+        assert_eq!(
+            info.src,
+            MsgAddress::from_hex(
+                "0:1418cd80d28e24c3194a54b2a58c70fc6bab0abb9d5f092c0c576b3ce272ebf1"
+            )
+            .unwrap(),
+        );
+        let dst = hex::decode("000000000000000000000000000000000000000000000000000000004D430200")
+            .unwrap();
+        assert_eq!(
+            info.dst,
+            MsgAddressExt::Extern(BitVec::<u8, Msb0>::from_vec(dst)),
+        );
+        assert_eq!(info.created_lt, 104733983000004);
+        assert_eq!(info.created_at, 1792680763);
+        assert_eq!(msg.init, None);
+
+        assert_eq!(msg.to_cell(()).unwrap(), *root);
+    }
+
+    #[test]
     fn external_out_msg_info_serde() {
         let info = CommonMsgInfo::ExternalOut(ExternalOutMsgInfo {
             src: MsgAddress::NULL,
-            dst: MsgAddress::NULL,
+            dst: MsgAddressExt::None,
             created_lt: 0,
             created_at: 0,
         });
@@ -443,5 +505,33 @@ mod tests {
         let got: CommonMsgInfo = cell.parse_fully(()).unwrap();
 
         assert_eq!(got, info);
+    }
+
+    #[test]
+    fn parse_message_with_external_address() {
+        use tlb::{
+            BagOfCells,
+            bits::bitvec::{order::Msb0, vec::BitVec},
+        };
+
+        let message_boc_hex = "b5ee9c7241020401000101000167940462cf17e50049f084177592cb5e67b28400a723bb8448ea1b7267dd18f43302defa3f2c301dd05a15e9a54438d5fee8d0010601019ca6bc5fd2c3f8d2a8a837fc34d3dbda9888982c6ce41caf1861672aaa2bc9c593dc5d818778d5281acc4e882f725624c383c1ee4045e4a5b2e5aa367fc0c7e60729a9a3176af576d400000055000302018062004391364d0979b33cf395db38332226ca4218b45b477d76042cf0230b5382d068a02faf080000000000000000000000000000487a8e8100000000000e7efc0300678014e47770891d436e4cfba31e86605bdf47e58603ba0b42bd34a8871abfdd1a0028ee6b28008ee6b28000a0000003c00001c2101b6673f2";
+
+        let boc = hex::decode(message_boc_hex).unwrap();
+        let cell = BagOfCells::deserialize(boc)
+            .unwrap()
+            .into_single_root()
+            .unwrap();
+
+        let msg: Message = cell.parse_fully(()).unwrap();
+
+        let CommonMsgInfo::ExternalIn(info) = &msg.info else {
+            panic!("expected ext_in_msg_info, got: {:?}", msg.info);
+        };
+        assert_eq!(
+            info.src,
+            MsgAddressExt::Extern(BitVec::<u8, Msb0>::from_vec(
+                hex::decode("8C59E2FCA0093E1082EEB2596BCCF650").unwrap()
+            )),
+        );
     }
 }
