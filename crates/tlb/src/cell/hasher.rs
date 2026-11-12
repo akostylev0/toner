@@ -45,6 +45,7 @@ where
         Arc::into_inner(aug).expect("exactly one")
     }
 
+    #[allow(clippy::chunks_exact_to_as_chunks)]
     fn compute(cell: &Cell, children: &[Arc<CellHashes>]) -> CellHashes {
         let kind = cell.exotic_kind();
         let is_pruned = kind.is_some_and(|k| k.is_pruned_branch());
